@@ -102,6 +102,60 @@ export function detectAlerts(posts: SocialPost[], opts: DetectAlertsOptions = {}
   return alerts.slice(0, 5)
 }
 
+export interface WeeklyVolumePoint {
+  weekStart: string
+  weekLabel: string
+  positive: number
+  negative: number
+  neutral: number
+  isSpike: boolean
+  spikeDelta?: number
+}
+
+export function buildWeeklyVolume(posts: SocialPost[], weeks = 8, now = Date.now()): WeeklyVolumePoint[] {
+  const buckets: { start: number; end: number; positive: number; negative: number; neutral: number }[] = []
+  for (let i = weeks - 1; i >= 0; i--) {
+    const end = now - i * 7 * DAY
+    const start = end - 7 * DAY
+    buckets.push({ start, end, positive: 0, negative: 0, neutral: 0 })
+  }
+  for (const p of posts) {
+    const t = postTimestamp(p)
+    if (t === null) continue
+    const b = buckets.find(b => t >= b.start && t < b.end)
+    if (!b) continue
+    if (p.sentiment === 'positive') b.positive += 1
+    else if (p.sentiment === 'negative') b.negative += 1
+    else b.neutral += 1
+  }
+  const out: WeeklyVolumePoint[] = buckets.map((b, i) => {
+    const d = new Date(b.start)
+    const label = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+    let isSpike = false
+    let spikeDelta: number | undefined
+    if (i > 0) {
+      const prev = buckets[i - 1]
+      if (b.negative >= 3 && prev.negative > 0 && b.negative >= prev.negative * 2) {
+        isSpike = true
+        spikeDelta = Math.round((b.negative / prev.negative - 1) * 100)
+      } else if (b.negative >= 5 && prev.negative === 0) {
+        isSpike = true
+        spikeDelta = undefined
+      }
+    }
+    return {
+      weekStart: new Date(b.start).toISOString(),
+      weekLabel: label,
+      positive: b.positive,
+      negative: b.negative,
+      neutral: b.neutral,
+      isSpike,
+      spikeDelta,
+    }
+  })
+  return out
+}
+
 export function filterRecentPosts(posts: SocialPost[], monthsBack: number, now = Date.now()): SocialPost[] {
   const cutoff = now - monthsBack * 30 * DAY
   return posts.filter(p => {

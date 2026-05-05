@@ -12,10 +12,11 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select'
-import { Search, ExternalLink, RefreshCw, Plus, X, Loader2, ChevronLeft, ChevronRight, BarChart3 } from 'lucide-react'
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { mockSocialPosts, mockPosNegTrend } from '@/lib/mock-data'
+import { Search, ExternalLink, RefreshCw, Plus, X, Loader2, ChevronLeft, ChevronRight, BarChart3, AlertTriangle } from 'lucide-react'
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts'
+import { mockSocialPosts } from '@/lib/mock-data'
 import type { SocialPost, Keyword } from '@/types'
+import type { WeeklyVolumePoint } from '@/lib/pr-alerts'
 
 const sentimentColor: Record<string, string> = {
   positive: 'bg-green-100 text-green-700',
@@ -44,6 +45,8 @@ export default function SocialPage() {
   const [fetching, setFetching] = useState(false)
   const [fetchMsg, setFetchMsg] = useState<string | null>(null)
   const [quota, setQuota] = useState<{ used: number; limit: number } | null>(null)
+  const [trend, setTrend] = useState<WeeklyVolumePoint[]>([])
+  const [trendUsedMock, setTrendUsedMock] = useState(false)
 
   const loadKeywords = useCallback(async () => {
     const res = await fetch('/api/social/keywords')
@@ -64,11 +67,21 @@ export default function SocialPage() {
     setQuota(data.quota ?? null)
   }, [])
 
+  const loadTrend = useCallback(async () => {
+    const res = await fetch('/api/social/trend?weeks=8')
+    if (res.ok) {
+      const data = await res.json()
+      setTrend(data.trend ?? [])
+      setTrendUsedMock(Boolean(data.usedMock))
+    }
+  }, [])
+
   useEffect(() => {
     loadKeywords()
     loadPosts()
     loadQuota()
-  }, [loadKeywords, loadPosts, loadQuota])
+    loadTrend()
+  }, [loadKeywords, loadPosts, loadQuota, loadTrend])
 
   async function handleFetch() {
     setFetching(true)
@@ -202,39 +215,88 @@ export default function SocialPage() {
         </div>
       )}
 
-      {/* 正向 / 負向聲量趨勢 */}
+      {/* 正向 / 負向聲量趨勢 + 突增偵測 */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            正向 / 負向聲量趨勢（近 8 週）
-          </CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between pb-2 flex-wrap gap-2">
+          <div>
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              正向 / 負向聲量趨勢（近 8 週）
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              負向突增（vs 上週 ≥ 2x，且 ≥ 3 則）會以紅點標出
+              {trendUsedMock && <span className="ml-1.5 text-amber-600">・ 範例資料</span>}
+            </p>
+          </div>
+          {trend.some(t => t.isSpike) && (
+            <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" />
+              偵測到 {trend.filter(t => t.isSpike).length} 週負向突增
+            </span>
+          )}
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={mockPosNegTrend}>
-              <defs>
-                <linearGradient id="socialPosGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#22c55e" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="socialNegGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#ef4444" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="date" fontSize={11} className="text-muted-foreground" />
-              <YAxis fontSize={11} className="text-muted-foreground" />
-              <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))' }} />
-              <Area type="monotone" dataKey="正向" stroke="#22c55e" strokeWidth={2} fill="url(#socialPosGrad)" />
-              <Area type="monotone" dataKey="負向" stroke="#ef4444" strokeWidth={2} fill="url(#socialNegGrad)" />
-            </AreaChart>
-          </ResponsiveContainer>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-green-500" /> 正向</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-red-500" /> 負向</span>
-          </div>
+          {trend.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-8">載入中...</p>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={trend} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+                  <defs>
+                    <linearGradient id="socialPosGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#22c55e" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="socialNegGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#ef4444" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="weekLabel" fontSize={11} className="text-muted-foreground" />
+                  <YAxis fontSize={11} className="text-muted-foreground" />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))' }}
+                    formatter={(v, name) => [`${v} 則`, name === 'positive' ? '正向' : name === 'negative' ? '負向' : '中性']}
+                  />
+                  <Area type="monotone" dataKey="positive" stroke="#22c55e" strokeWidth={2} fill="url(#socialPosGrad)" />
+                  <Area type="monotone" dataKey="negative" stroke="#ef4444" strokeWidth={2} fill="url(#socialNegGrad)" />
+                  {trend.map((t, i) =>
+                    t.isSpike ? (
+                      <ReferenceDot
+                        key={i}
+                        x={t.weekLabel}
+                        y={t.negative}
+                        r={6}
+                        fill="#dc2626"
+                        stroke="#fff"
+                        strokeWidth={2}
+                      />
+                    ) : null,
+                  )}
+                </AreaChart>
+              </ResponsiveContainer>
+              <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1 flex-wrap">
+                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-green-500" /> 正向</span>
+                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-red-500" /> 負向</span>
+                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-red-600 border-2 border-white" /> 突增警示</span>
+              </div>
+              {trend.some(t => t.isSpike) && (
+                <div className="mt-3 space-y-1.5">
+                  {trend.filter(t => t.isSpike).map((t, i) => (
+                    <div key={i} className="text-xs border-l-2 border-red-500 bg-red-50/40 dark:bg-red-950/20 px-3 py-1.5 rounded-r">
+                      <span className="font-medium">{t.weekLabel} 週</span>
+                      <span className="text-muted-foreground ml-2">
+                        負向 {t.negative} 則
+                        {t.spikeDelta !== undefined && <span className="text-red-600 ml-1">（+{t.spikeDelta}% vs 上週）</span>}
+                        {t.spikeDelta === undefined && <span className="text-red-600 ml-1">（上週為 0）</span>}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
 

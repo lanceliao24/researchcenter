@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { FileText, Sparkles, Loader2, RefreshCw, AlertTriangle, TrendingUp, Info, Lightbulb } from 'lucide-react'
+import { FileText, Sparkles, Loader2, RefreshCw, AlertTriangle, TrendingUp, Info, Lightbulb, Download } from 'lucide-react'
 import type { MonthlyReportSnapshot, ReportFinding } from '@/lib/monthly-report-store'
 
 const toneStyles: Record<ReportFinding['tone'], { bar: string; icon: React.ComponentType<{ className?: string }>; iconCls: string; badgeCls: string; label: string }> = {
@@ -80,20 +80,31 @@ export function MonthlyReportCard() {
             )}
           </p>
         </div>
-        <Button
-          size="sm"
-          variant={snapshot ? 'outline' : 'default'}
-          onClick={regenerate}
-          disabled={running}
-        >
-          {running ? (
-            <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />產生中</>
-          ) : snapshot ? (
-            <><RefreshCw className="h-3.5 w-3.5 mr-1.5" />重新產生</>
-          ) : (
-            <><Sparkles className="h-3.5 w-3.5 mr-1.5" />產生月報</>
+        <div className="flex items-center gap-2">
+          {snapshot && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => window.open('/print/monthly-report', '_blank')}
+            >
+              <Download className="h-3.5 w-3.5 mr-1.5" />匯出 PDF
+            </Button>
           )}
-        </Button>
+          <Button
+            size="sm"
+            variant={snapshot ? 'outline' : 'default'}
+            onClick={regenerate}
+            disabled={running}
+          >
+            {running ? (
+              <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />產生中</>
+            ) : snapshot ? (
+              <><RefreshCw className="h-3.5 w-3.5 mr-1.5" />重新產生</>
+            ) : (
+              <><Sparkles className="h-3.5 w-3.5 mr-1.5" />產生月報</>
+            )}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {error && <p className="text-xs text-destructive mb-3">{error}</p>}

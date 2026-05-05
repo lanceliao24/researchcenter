@@ -6,6 +6,7 @@ import { MonthlySnapshot } from './monthly-snapshot'
 import { MonthlyTrend } from './monthly-trend'
 import { TopicAlignmentCard } from '@/components/insights/topic-alignment'
 import { MonthlyReportCard } from '@/components/insights/monthly-report'
+import { CompetitorAlignmentCard } from '@/components/insights/competitor-alignment'
 import { listMetricsByMonth, listMonths } from '@/lib/monthly-survey-store'
 import type { Document, SurveyMonthlyMetrics } from '@/types'
 
@@ -67,6 +68,8 @@ export default async function SurveysPage() {
       {monthlyMonths.length > 0 && <MonthlyTrend />}
 
       {monthlyMonths.length > 0 && <TopicAlignmentCard />}
+
+      {monthlyMonths.length > 0 && <CompetitorAlignmentCard />}
 
       <FileUploader type="survey" accept=".csv" />
 
