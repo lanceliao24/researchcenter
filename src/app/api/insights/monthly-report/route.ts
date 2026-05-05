@@ -11,6 +11,7 @@ import {
 import {
   buildCsatNpsCross,
   buildPainPoints,
+  buildWeeklyTrend,
 } from '@/lib/monthly-survey-metrics'
 import {
   readReport,
@@ -30,12 +31,14 @@ const SYSTEM_PROMPT = `你是 LINE GO 的資深用戶研究員。任務：把多
   - evidence：用具體數字描述發現（保留小數位）
   - recommendation：1 句話的建議行動，要 actionable，不能是空泛口號
   - tone：positive（亮點）／warning（需注意）／info（觀察）
-  - source：簡短註明資料來源（例如：「計程車問卷」「共享機車痛點」）
+  - source：簡短註明資料來源（例如：「計程車問卷」「共享機車週走勢」）
 
 規則：
 - 每條 finding 必須引用具體數字
 - 至少 3 條 warning（除非完全沒有負面訊號）
 - 涵蓋多個服務，不要全部聚焦同一個
+- **週度波動 finding 的門檻**：兩週的 satisfied_pct 或 NPS 落差 ≥ 5pp，**且**比較的兩週各自 sample size n ≥ 10。樣本不足的週（n < 10）視為雜訊，不要列為 finding，也不要在其他 finding 中引用其數字
+- 符合上述門檻的劇烈波動，優先列為 finding 之一
 - 推薦行動具體：例如「在問卷補上『LinePay 綁定問題』選項」優於「改善支付體驗」
 
 回傳純 JSON：
@@ -65,11 +68,27 @@ function buildUserMessage(month: string): string {
     if (rows.length < 5) continue
     const cross = buildCsatNpsCross(rows)
     const pains = buildPainPoints(rows).slice(0, 3)
+    const weekly = buildWeeklyTrend(rows)
 
     lines.push(`【${surveyServiceLabel(m.service)} (${m.service}) - ${m.responses.toLocaleString()} 筆】`)
     lines.push(
       `- 滿意度 ${m.satisfied_pct.toFixed(1)}% ・ NPS ${m.nps >= 0 ? '+' : ''}${m.nps.toFixed(1)} ・ 占當月 ${m.weight_pct.toFixed(1)}%`,
     )
+    if (weekly.length >= 2) {
+      const segs = weekly.map(w => `${w.week}(n=${w.count}, sat ${w.satisfied_pct.toFixed(1)}%, NPS ${w.nps >= 0 ? '+' : ''}${w.nps.toFixed(1)})`).join(' → ')
+      lines.push(`- 週走勢：${segs}`)
+      const satMax = Math.max(...weekly.map(w => w.satisfied_pct))
+      const satMin = Math.min(...weekly.map(w => w.satisfied_pct))
+      const npsMax = Math.max(...weekly.map(w => w.nps))
+      const npsMin = Math.min(...weekly.map(w => w.nps))
+      const satRange = satMax - satMin
+      const npsRange = npsMax - npsMin
+      if (satRange >= 5 || npsRange >= 5) {
+        lines.push(
+          `  → 週間波動：滿意度 ${satRange.toFixed(1)}pp（${satMin.toFixed(1)}–${satMax.toFixed(1)}）、NPS ${npsRange.toFixed(1)}pp（${npsMin.toFixed(1)}–${npsMax.toFixed(1)}）`,
+        )
+      }
+    }
     if (cross.loyal.count > 0) {
       lines.push(
         `- 忠誠用戶（CSAT=5）${cross.loyal.count} 人，NPS ${cross.loyal.nps.toFixed(1)}（理想 100）`,
