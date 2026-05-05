@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# uploads / generated data (raw csv, AI snapshots, quota, persona stores)
+/public/uploads/
