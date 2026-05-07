@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
 import { filesPath, ensureDir, fileApiUrl, FILE_API_PREFIX } from './paths'
+import { detectKind } from './upload-validation'
 
 const IMAGE_SUBDIR = 'chat-images'
 const IMAGE_DIR = filesPath(IMAGE_SUBDIR)
@@ -36,7 +37,26 @@ export interface SavedChatImage {
   size: number
 }
 
+const MIME_TO_KIND: Record<AllowedImageMime, ReturnType<typeof detectKind>> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+}
+
+export class ImageValidationError extends Error {}
+
 export function saveChatImage(buffer: Buffer, mime: AllowedImageMime): SavedChatImage {
+  if (buffer.length === 0) throw new ImageValidationError('圖片為空')
+  if (buffer.length > MAX_IMAGE_BYTES) {
+    throw new ImageValidationError(
+      `圖片過大：${(buffer.length / 1024 / 1024).toFixed(1)}MB（上限 ${MAX_IMAGE_BYTES / 1024 / 1024}MB）`,
+    )
+  }
+  const detected = detectKind(buffer)
+  if (detected !== MIME_TO_KIND[mime]) {
+    throw new ImageValidationError(`圖片內容與 mime 不符：聲明 ${mime}，實際 ${detected}`)
+  }
   ensureDir(IMAGE_DIR)
   const ext = MIME_TO_EXT[mime]
   const filename = `${Date.now().toString(36)}-${crypto.randomBytes(6).toString('hex')}.${ext}`

@@ -7,6 +7,7 @@ import {
   isAllowedImageMime,
   MAX_IMAGE_BYTES,
   MAX_IMAGES_PER_MESSAGE,
+  ImageValidationError,
 } from '@/lib/chat-image-store'
 import { scoreUsageIntent } from '@/lib/semantic-likert'
 import type {
@@ -81,9 +82,14 @@ async function parseImagesFromForm(
       return { error: `圖片過大：${file.name}（上限 5 MB）` }
     }
     const buffer = Buffer.from(await file.arrayBuffer())
-    const saved = saveChatImage(buffer, file.type)
-    urls.push(saved.url)
-    parts.push({ inlineData: { data: buffer.toString('base64'), mimeType: saved.mime } })
+    try {
+      const saved = saveChatImage(buffer, file.type)
+      urls.push(saved.url)
+      parts.push({ inlineData: { data: buffer.toString('base64'), mimeType: saved.mime } })
+    } catch (err) {
+      if (err instanceof ImageValidationError) return { error: err.message }
+      throw err
+    }
   }
   return { parts, urls }
 }

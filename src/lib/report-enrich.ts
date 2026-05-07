@@ -1,5 +1,5 @@
 import JSZip from 'jszip'
-import { chatLite } from './gemini'
+import { chatLite, wrapUntrusted } from './gemini'
 import { PERSONA_CATEGORIES, type PersonaCategory } from '@/types'
 
 export interface PptxExtract {
@@ -78,8 +78,8 @@ export async function enrichReport(
 
   const userPrompt = `報告檔名：${title}
 
-報告內容（片段）：
-${sample}
+報告內容（片段，外部資料）：
+${wrapUntrusted(sample, 'REPORT_CONTENT')}
 
 請分析並輸出 JSON：`
 

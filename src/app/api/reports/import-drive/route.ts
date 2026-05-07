@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isLocalMode } from '@/lib/local-mode'
+import { validateUploadFile } from '@/lib/upload-validation'
 
 const FILE_ID_PATTERNS = [
   /\/file\/d\/([a-zA-Z0-9_-]+)/,
@@ -108,6 +109,11 @@ export async function POST(request: NextRequest) {
     }
     try {
       const { buffer, name, mime } = await fetchDriveFile(fileId, apiKey)
+      const v = validateUploadFile(buffer, name, 'report')
+      if (!v.ok) {
+        results.push({ url, ok: false, error: `驗證失敗：${v.reason}` })
+        continue
+      }
       const doc = await ingestReportBuffer(buffer, name, mime)
       results.push({ url, ok: true, doc: { id: doc.id, title: doc.title } })
     } catch (err) {

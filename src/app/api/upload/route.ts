@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isLocalMode } from '@/lib/local-mode'
+import { validateUploadFile, type UploadType } from '@/lib/upload-validation'
+
+const VALID_TYPES: UploadType[] = ['report', 'survey', 'transcript']
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData()
@@ -10,19 +13,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing files or type' }, { status: 400 })
   }
 
+  if (!VALID_TYPES.includes(type as UploadType)) {
+    return NextResponse.json({ error: `不支援的 type: ${type}` }, { status: 400 })
+  }
+
   if (isLocalMode()) {
-    return handleLocalUpload(files, type)
+    return handleLocalUpload(files, type as UploadType)
   }
 
   return handleSupabaseUpload(request, files, type)
 }
 
-async function handleLocalUpload(files: File[], type: string) {
+async function handleLocalUpload(files: File[], type: UploadType) {
   const { addLocalDocument, saveUploadedFile } = await import('@/lib/local-store')
-  const results = []
+  const results: Array<unknown> = []
+  const rejected: Array<{ name: string; reason: string }> = []
 
   for (const file of files) {
     const buffer = Buffer.from(await file.arrayBuffer())
+    const validation = validateUploadFile(buffer, file.name, type)
+    if (!validation.ok) {
+      rejected.push({ name: file.name, reason: validation.reason })
+      continue
+    }
 
     if (type === 'report') {
       const { ingestReportBuffer } = await import('@/lib/report-ingest')
@@ -55,7 +68,7 @@ async function handleLocalUpload(files: File[], type: string) {
 
     const doc = addLocalDocument({
       title: file.name,
-      type: type as 'transcript' | 'survey' | 'report',
+      type: type,
       file_path: relativePath,
       status: 'ready',
       metadata,
@@ -65,7 +78,11 @@ async function handleLocalUpload(files: File[], type: string) {
     results.push(doc)
   }
 
-  return NextResponse.json({ uploaded: results.length, documents: results })
+  const status = results.length === 0 && rejected.length > 0 ? 400 : 200
+  return NextResponse.json(
+    { uploaded: results.length, documents: results, rejected },
+    { status },
+  )
 }
 
 async function handleSupabaseUpload(_request: NextRequest, files: File[], type: string) {

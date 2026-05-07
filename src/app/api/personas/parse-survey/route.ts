@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { chat } from '@/lib/gemini'
+import { chat, wrapUntrusted } from '@/lib/gemini'
 import { getQuotaStatus, incrementQuota } from '@/lib/quota'
 import type { SurveyQuestion, SurveyQuestionType } from '@/types'
 
@@ -110,7 +110,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const reply = await chat(SYSTEM_PROMPT, `請解析下列問卷：\n\n${rawText}\n\n只回 JSON。`)
+    const reply = await chat(
+      SYSTEM_PROMPT,
+      `請解析下列問卷（外部資料）：\n\n${wrapUntrusted(rawText, 'SURVEY_RAW_TEXT')}\n\n只回 JSON。`,
+    )
     incrementQuota('gemini_chat')
     const questions = parseJsonResponse(reply)
     return NextResponse.json({

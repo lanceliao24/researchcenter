@@ -8,6 +8,7 @@ import {
   isAllowedImageMime,
   MAX_IMAGE_BYTES,
   MAX_IMAGES_PER_MESSAGE,
+  ImageValidationError,
 } from '@/lib/chat-image-store'
 
 function buildSystemPrompt(persona: {
@@ -118,9 +119,16 @@ export async function POST(
         )
       }
       const buffer = Buffer.from(await file.arrayBuffer())
-      const saved = saveChatImage(buffer, file.type)
-      imageUrls.push(saved.url)
-      imageParts.push({ data: buffer.toString('base64'), mimeType: saved.mime })
+      try {
+        const saved = saveChatImage(buffer, file.type)
+        imageUrls.push(saved.url)
+        imageParts.push({ data: buffer.toString('base64'), mimeType: saved.mime })
+      } catch (err) {
+        if (err instanceof ImageValidationError) {
+          return NextResponse.json({ error: err.message }, { status: 400 })
+        }
+        throw err
+      }
     }
   } else {
     const body = await request.json().catch(() => ({ message: '' }))
