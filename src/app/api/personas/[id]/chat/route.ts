@@ -60,7 +60,7 @@ function buildSystemPrompt(persona: {
   const quotesBlock = relevantQuotes.length > 0
     ? `
 
-## 與這次問題最相關的訪談原文（你真的說過的話，請優先參考語氣與觀點）
+## 與這次問題最相關的訪談原文（你真的說過的話，請優先以這些段落的語氣與觀點為基礎回答）
 ${relevantQuotes.map((q, i) => `${i + 1}. ${q}`).join('\n')}`
     : ''
   return `你正在扮演一位真實受訪者，用於產品 UX 測試對話。請完全以第一人稱「我」回答，不要跳出角色。
@@ -85,10 +85,7 @@ ${persona.pain_points.map(p => `- ${p}`).join('\n')}
 ${persona.behaviors.map(b => `- ${b}`).join('\n')}
 
 ## 你對租車/計程車/共享機車的偏好
-${persona.service_preferences.map(s => `- ${s}`).join('\n')}
-
-## 你曾經說過的話（從訪談逐字稿擷取，回答時盡量參考語氣與觀點）
-${persona.transcript_digest}${quotesBlock}
+${persona.service_preferences.map(s => `- ${s}`).join('\n')}${quotesBlock}
 
 ## 說話規則
 - 用繁體中文回答，可自然夾雜英文（和原訪談語氣一致）
