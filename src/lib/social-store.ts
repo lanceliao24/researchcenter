@@ -1,8 +1,9 @@
 import fs from 'fs'
 import path from 'path'
 import type { SocialPost, Keyword } from '@/types'
+import { storePath } from './paths'
 
-const STORE_PATH = path.join(process.cwd(), 'public', 'uploads', '_social_store.json')
+const STORE_PATH = storePath('social-store.json')
 
 const DEFAULT_KEYWORDS = [
   'LINE GO 租車',

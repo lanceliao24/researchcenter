@@ -1,8 +1,9 @@
 import fs from 'fs'
 import path from 'path'
 import type { PersonaChatMessage } from '@/types'
+import { storePath } from './paths'
 
-const STORE_PATH = path.join(process.cwd(), 'public', 'uploads', '_persona_chats.json')
+const STORE_PATH = storePath('persona-chats.json')
 
 interface ChatStore {
   conversations: Record<number, PersonaChatMessage[]>

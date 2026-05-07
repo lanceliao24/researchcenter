@@ -1,8 +1,8 @@
 import fs from 'fs'
-import path from 'path'
 import Papa from 'papaparse'
 import { getLocalDocuments } from '@/lib/local-store'
 import { mockSocialPosts } from '@/lib/mock-data'
+import { resolveFileApiUrl } from '@/lib/paths'
 
 export interface LocalChunk {
   chunk_text: string
@@ -51,8 +51,8 @@ export function retrieveLocalContext(
       const meta = doc.metadata as Record<string, unknown> | null
       const textPath = meta?.textPath as string | undefined
       const filePath = textPath || doc.file_path
-      const fullPath = path.join(process.cwd(), 'public', filePath)
-      if (!fs.existsSync(fullPath)) continue
+      const fullPath = resolveFileApiUrl(filePath)
+      if (!fullPath || !fs.existsSync(fullPath)) continue
       const content = fs.readFileSync(fullPath, 'utf-8')
 
       if (doc.type === 'survey') {

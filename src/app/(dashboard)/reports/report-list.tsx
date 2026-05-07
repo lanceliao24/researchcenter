@@ -387,8 +387,8 @@ function ReportCard({
   deleting: boolean
 }) {
   const meta = getMeta(doc)
-  const canPreview = isLocal && doc.file_path?.startsWith('/uploads/')
-  const canEdit = isLocal && doc.file_path?.startsWith('/uploads/')
+  const canPreview = isLocal && doc.file_path?.startsWith('/api/files/')
+  const canEdit = isLocal && doc.file_path?.startsWith('/api/files/')
 
   return (
     <Card>

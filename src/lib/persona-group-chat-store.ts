@@ -1,7 +1,8 @@
 import fs from 'fs'
 import path from 'path'
+import { storePath } from './paths'
 
-const STORE_PATH = path.join(process.cwd(), 'public', 'uploads', '_persona_group_chats.json')
+const STORE_PATH = storePath('persona-group-chats.json')
 
 export interface GroupMessage {
   type: 'user' | 'persona'

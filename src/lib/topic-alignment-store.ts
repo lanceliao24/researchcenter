@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { storePath } from './paths'
 
 export interface AlignedTopic {
   topic: string
@@ -26,7 +27,7 @@ export interface TopicAlignmentSnapshot {
   summary: string
 }
 
-const STORE_PATH = path.join(process.cwd(), 'public', 'uploads', '_topic_alignment.json')
+const STORE_PATH = storePath('topic-alignment.json')
 
 function ensureDir(p: string) {
   if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true })

@@ -1,8 +1,9 @@
 import fs from 'fs'
 import path from 'path'
 import type { PersonaSurveyFillRun } from '@/types'
+import { storePath } from './paths'
 
-const STORE_PATH = path.join(process.cwd(), 'public', 'uploads', '_persona_survey_fills.json')
+const STORE_PATH = storePath('persona-survey-fills.json')
 
 interface FillStore {
   runs: PersonaSurveyFillRun[]

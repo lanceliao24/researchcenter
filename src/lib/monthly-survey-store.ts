@@ -1,9 +1,10 @@
 import fs from 'fs'
 import path from 'path'
 import type { SurveyMonthlyMetrics, SurveyMonthlyRawRow, SurveyTheme } from '@/types'
+import { storePath, filesPath } from './paths'
 
-const METRICS_PATH = path.join(process.cwd(), 'public', 'uploads', '_monthly_survey_metrics.json')
-const RAW_DIR = path.join(process.cwd(), 'public', 'uploads', 'survey-monthly')
+const METRICS_PATH = storePath('monthly-survey-metrics.json')
+const RAW_DIR = filesPath('survey-monthly')
 
 interface MetricsStore {
   metrics: SurveyMonthlyMetrics[]

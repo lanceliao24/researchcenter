@@ -1,7 +1,8 @@
 import fs from 'fs'
 import path from 'path'
+import { storePath } from './paths'
 
-const STORE_PATH = path.join(process.cwd(), 'public', 'uploads', '_survey_summaries.json')
+const STORE_PATH = storePath('survey-summaries.json')
 
 export interface SurveySummaryTheme {
   title: string

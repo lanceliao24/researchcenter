@@ -1,8 +1,9 @@
 import fs from 'fs'
 import path from 'path'
 import type { Persona, PersonaCategory } from '@/types'
+import { storePath } from './paths'
 
-const STORE_PATH = path.join(process.cwd(), 'public', 'uploads', '_personas.json')
+const STORE_PATH = storePath('personas.json')
 
 interface PersonaStore {
   personas: Persona[]

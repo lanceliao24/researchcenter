@@ -1,8 +1,15 @@
 import fs from 'fs'
 import path from 'path'
 import type { Document } from '@/types'
+import {
+  storePath,
+  filesPath,
+  fileApiUrl,
+  ensureDir,
+  resolveFileApiUrl,
+} from './paths'
 
-const STORE_PATH = path.join(process.cwd(), 'public', 'uploads', '_store.json')
+const STORE_PATH = storePath('documents.json')
 
 interface LocalStore {
   documents: Document[]
@@ -77,8 +84,8 @@ export function removeLocalDocument(id: number): Document | null {
 
   for (const rel of pathsToDelete) {
     try {
-      const full = path.join(process.cwd(), 'public', rel)
-      if (fs.existsSync(full)) fs.unlinkSync(full)
+      const full = resolveFileApiUrl(rel)
+      if (full && fs.existsSync(full)) fs.unlinkSync(full)
     } catch (err) {
       console.error('Failed to delete file', rel, err)
     }
@@ -87,16 +94,23 @@ export function removeLocalDocument(id: number): Document | null {
   return doc
 }
 
-export function saveUploadedFile(file: Buffer, filename: string, subdir: string): string {
-  const dir = path.join(process.cwd(), 'public', 'uploads', subdir)
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-  const safeName = `${Date.now()}-${filename}`
-  const filePath = path.join(dir, safeName)
-  fs.writeFileSync(filePath, file)
-  return `/uploads/${subdir}/${safeName}`
+function sanitizeFilename(name: string): string {
+  const base = path.basename(name).replace(/[\x00-\x1f/\\]+/g, '_')
+  return base.slice(0, 200) || 'file'
 }
 
-export function readUploadedFile(relativePath: string): string {
-  const fullPath = path.join(process.cwd(), 'public', relativePath)
-  return fs.readFileSync(fullPath, 'utf-8')
+export function saveUploadedFile(file: Buffer, filename: string, subdir: string): string {
+  const cleanSubdir = subdir.replace(/[^a-zA-Z0-9_-]/g, '')
+  const dir = filesPath(cleanSubdir)
+  ensureDir(dir)
+  const safeBase = sanitizeFilename(filename)
+  const safeName = `${Date.now()}-${safeBase}`
+  fs.writeFileSync(path.join(dir, safeName), file)
+  return fileApiUrl(cleanSubdir, safeName)
+}
+
+export function readUploadedFile(fileApiPath: string): string {
+  const full = resolveFileApiUrl(fileApiPath)
+  if (!full) throw new Error(`Invalid file path: ${fileApiPath}`)
+  return fs.readFileSync(full, 'utf-8')
 }

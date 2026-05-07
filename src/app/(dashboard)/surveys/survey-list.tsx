@@ -118,8 +118,8 @@ export function SurveyList({ documents, isLocal }: SurveyListProps) {
     }
   }
 
-  const canPreview = (doc: Document) => isLocal && doc.file_path?.startsWith('/uploads/')
-  const canDelete = (doc: Document) => isLocal && doc.file_path?.startsWith('/uploads/')
+  const canPreview = (doc: Document) => isLocal && doc.file_path?.startsWith('/api/files/')
+  const canDelete = (doc: Document) => isLocal && doc.file_path?.startsWith('/api/files/')
 
   return (
     <div className="grid gap-4">

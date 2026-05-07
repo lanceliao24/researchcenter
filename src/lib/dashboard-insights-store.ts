@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { storePath } from './paths'
 
 export type InsightTone = 'positive' | 'warning' | 'info'
 
@@ -16,7 +17,7 @@ export interface DashboardInsightsSnapshot {
   context: Record<string, unknown>
 }
 
-const STORE_PATH = path.join(process.cwd(), 'public', 'uploads', '_dashboard_insights.json')
+const STORE_PATH = storePath('dashboard-insights.json')
 
 function ensureDir(p: string) {
   if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true })

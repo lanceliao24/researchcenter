@@ -1,7 +1,7 @@
 import fs from 'fs'
-import path from 'path'
 import Papa from 'papaparse'
 import { getLocalDocuments } from '@/lib/local-store'
+import { resolveFileApiUrl } from '@/lib/paths'
 import { getSurveySummary } from '@/lib/survey-summary-store'
 import { chunkText } from './chunker'
 import { upsertChunks, deleteBySource, type VectorRecordInput } from './local-semantic-retriever'
@@ -27,8 +27,8 @@ function readDocumentContent(doc: Document): string | null {
   const textPath = meta?.textPath as string | undefined
   const filePath = textPath || doc.file_path
   if (!filePath) return null
-  const fullPath = path.join(process.cwd(), 'public', filePath)
-  if (!fs.existsSync(fullPath)) return null
+  const fullPath = resolveFileApiUrl(filePath)
+  if (!fullPath || !fs.existsSync(fullPath)) return null
   return fs.readFileSync(fullPath, 'utf-8')
 }
 

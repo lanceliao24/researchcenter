@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { storePath } from './paths'
 
 export interface CompetitorCounts {
   positive: number
@@ -19,7 +20,7 @@ export interface CompetitorAlignmentSnapshot {
   summary: string
 }
 
-const STORE_PATH = path.join(process.cwd(), 'public', 'uploads', '_competitor_alignment.json')
+const STORE_PATH = storePath('competitor-alignment.json')
 
 function ensureDir(p: string) {
   if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true })

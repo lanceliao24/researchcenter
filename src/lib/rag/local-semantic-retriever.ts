@@ -2,9 +2,10 @@ import fs from 'fs'
 import path from 'path'
 import { generateEmbedding, generateEmbeddings } from '@/lib/gemini'
 import { checkQuota, incrementQuota, QuotaExceededError } from '@/lib/quota'
+import { storePath } from '@/lib/paths'
 import type { PersonaCategory } from '@/types'
 
-const INDEX_PATH = path.join(process.cwd(), 'public', 'uploads', '_vector_index.ndjson')
+const INDEX_PATH = storePath('vector-index.ndjson')
 
 export type VectorSourceType =
   | 'survey_open'

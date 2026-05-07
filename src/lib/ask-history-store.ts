@@ -1,8 +1,9 @@
 import fs from 'fs'
 import path from 'path'
 import type { ChatMessage } from '@/types'
+import { storePath } from './paths'
 
-const STORE_PATH = path.join(process.cwd(), 'public', 'uploads', '_ask_history.json')
+const STORE_PATH = storePath('ask-history.json')
 
 export interface AskConversation {
   id: string

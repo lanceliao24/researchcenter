@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { storePath } from './paths'
 
 export interface ReportFinding {
   title: string
@@ -22,7 +23,7 @@ export interface MonthlyReportSnapshot {
   }
 }
 
-const STORE_PATH = path.join(process.cwd(), 'public', 'uploads', '_monthly_report.json')
+const STORE_PATH = storePath('monthly-report.json')
 
 function ensureDir(p: string) {
   if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true })

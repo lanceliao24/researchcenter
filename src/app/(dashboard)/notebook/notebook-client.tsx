@@ -404,7 +404,7 @@ export function NotebookClient({ documents, wikiPages: initialPages, socialPostC
                     checked={selectedSources.has(`${type}:${doc.id}`)}
                     onChange={() => toggleSource(`${type}:${doc.id}`)}
                     title={doc.title}
-                    subtitle={doc.file_path?.startsWith('/uploads/') ? '已上傳' : '模擬資料'}
+                    subtitle={doc.file_path?.startsWith('/api/files/') ? '已上傳' : '模擬資料'}
                   />
                 ))}
               </div>

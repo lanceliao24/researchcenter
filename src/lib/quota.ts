@@ -1,7 +1,8 @@
 import fs from 'fs'
 import path from 'path'
+import { storePath } from './paths'
 
-const QUOTA_PATH = path.join(process.cwd(), 'public', 'uploads', '_quota.json')
+const QUOTA_PATH = storePath('quota.json')
 
 const LIMITS = {
   gemini_chat: Number(process.env.QUOTA_GEMINI_CHAT_PER_DAY ?? 100),

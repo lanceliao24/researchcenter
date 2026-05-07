@@ -1,8 +1,10 @@
 import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
+import { filesPath, ensureDir, fileApiUrl, FILE_API_PREFIX } from './paths'
 
-const IMAGE_DIR = path.join(process.cwd(), 'public', 'uploads', 'chat-images')
+const IMAGE_SUBDIR = 'chat-images'
+const IMAGE_DIR = filesPath(IMAGE_SUBDIR)
 
 export const ALLOWED_IMAGE_MIMES = [
   'image/jpeg',
@@ -35,13 +37,13 @@ export interface SavedChatImage {
 }
 
 export function saveChatImage(buffer: Buffer, mime: AllowedImageMime): SavedChatImage {
-  if (!fs.existsSync(IMAGE_DIR)) fs.mkdirSync(IMAGE_DIR, { recursive: true })
+  ensureDir(IMAGE_DIR)
   const ext = MIME_TO_EXT[mime]
   const filename = `${Date.now().toString(36)}-${crypto.randomBytes(6).toString('hex')}.${ext}`
   const absolutePath = path.join(IMAGE_DIR, filename)
   fs.writeFileSync(absolutePath, buffer)
   return {
-    url: `/uploads/chat-images/${filename}`,
+    url: fileApiUrl(IMAGE_SUBDIR, filename),
     absolutePath,
     mime,
     size: buffer.length,
@@ -49,9 +51,17 @@ export function saveChatImage(buffer: Buffer, mime: AllowedImageMime): SavedChat
 }
 
 export function resolveChatImagePath(url: string): string | null {
-  const prefix = '/uploads/chat-images/'
-  if (!url.startsWith(prefix)) return null
-  const name = url.slice(prefix.length)
+  const newPrefix = FILE_API_PREFIX + IMAGE_SUBDIR + '/'
+  const legacyPrefix = '/uploads/chat-images/'
+  let name: string | null = null
+  if (url.startsWith(newPrefix)) name = url.slice(newPrefix.length)
+  else if (url.startsWith(legacyPrefix)) name = url.slice(legacyPrefix.length)
+  if (!name) return null
+  try {
+    name = decodeURIComponent(name)
+  } catch {
+    return null
+  }
   if (!/^[\w.-]+$/.test(name)) return null
   return path.join(IMAGE_DIR, name)
 }
