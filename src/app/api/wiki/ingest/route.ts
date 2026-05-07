@@ -12,6 +12,7 @@ import {
   type WikiPageMeta,
 } from '@/lib/wiki'
 import { requireEditor } from '@/lib/auth'
+import { logAudit } from '@/lib/audit-log'
 
 export async function POST(request: NextRequest) {
   const auth = await requireEditor(request)
@@ -119,6 +120,10 @@ ${sourceContent.length > 12000 ? '\n\n（內容已截斷，以上為前 12000 �
     // Append log
     appendLog(result.logEntry || `ingest | ${sourceTitle}`)
 
+    logAudit(auth, 'wiki.ingest', null, {
+      pagesWritten: writtenPages.length,
+      sourceTitle,
+    })
     return NextResponse.json({
       success: true,
       pagesWritten: writtenPages,

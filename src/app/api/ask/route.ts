@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isLocalMode } from '@/lib/local-mode'
 import { chat, wrapUntrusted } from '@/lib/gemini'
-import { checkQuota, incrementQuota, getQuotaStatus } from '@/lib/quota'
+import { checkBoth, incrementBoth, getQuotaStatus, getUserQuotaStatus, quotaDeniedMessage } from '@/lib/quota'
+import { requireUser } from '@/lib/auth'
 
 export async function GET() {
   return NextResponse.json({ quota: getQuotaStatus('gemini_chat') })
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireUser(request)
+  if (auth instanceof NextResponse) return auth
+
   const { messages, scope } = await request.json()
   const lastMessage = messages[messages.length - 1]
 
@@ -15,22 +19,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No message provided' }, { status: 400 })
   }
 
-  const q = checkQuota('gemini_chat')
+  const q = checkBoth(auth, 'gemini_chat')
   if (!q.ok) {
     return NextResponse.json(
-      { error: `今日 AI 問答額度已用完 (${q.used}/${q.limit})，請明日再試`, quota: q },
-      { status: 429 }
+      {
+        error: quotaDeniedMessage(q.reason),
+        quota: getQuotaStatus('gemini_chat'),
+        userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat'),
+      },
+      { status: 429 },
     )
-  }
-
-  // Auth check (skip in local mode)
-  if (!isLocalMode()) {
-    const { createClient } = await import('@/lib/supabase/server')
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
   }
 
   try {
@@ -100,9 +98,14 @@ ${contextStr ? wrapUntrusted(contextStr, 'RESEARCH_CONTEXT') : '（目前沒有�
       : lastMessage.content
 
     const answer = await chat(systemPrompt, fullQuery)
-    incrementQuota('gemini_chat')
+    incrementBoth(auth, 'gemini_chat')
 
-    return NextResponse.json({ answer, sources, quota: getQuotaStatus('gemini_chat') })
+    return NextResponse.json({
+      answer,
+      sources,
+      quota: getQuotaStatus('gemini_chat'),
+      userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat'),
+    })
   } catch (err) {
     console.error('Ask API error:', err)
     const e = err as { status?: number; message?: string }

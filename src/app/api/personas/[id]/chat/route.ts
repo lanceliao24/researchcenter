@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getPersona } from '@/lib/persona-store'
 import { getMessages, appendMessage, clearMessages } from '@/lib/persona-chat-store'
 import { chatWithHistory, type ChatImagePart } from '@/lib/gemini'
-import { getQuotaStatus, incrementQuota } from '@/lib/quota'
+import { getQuotaStatus, getUserQuotaStatus, checkBoth, incrementBoth, quotaDeniedMessage } from '@/lib/quota'
+import { requireUser } from '@/lib/auth'
 import {
   saveChatImage,
   isAllowedImageMime,
@@ -85,6 +86,9 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireUser(request)
+  if (auth instanceof NextResponse) return auth
+
   const { id } = await context.params
   const personaId = Number(id)
   const persona = getPersona(personaId)
@@ -139,11 +143,15 @@ export async function POST(
     return NextResponse.json({ error: '訊息或圖片至少擇一' }, { status: 400 })
   }
 
-  const quota = getQuotaStatus('gemini_chat')
-  if (quota.remaining <= 0) {
+  const q = checkBoth(auth, 'gemini_chat')
+  if (!q.ok) {
     return NextResponse.json(
-      { error: `今日 AI 額度已用完 (${quota.used}/${quota.limit})`, quota },
-      { status: 429 }
+      {
+        error: quotaDeniedMessage(q.reason),
+        quota: getQuotaStatus('gemini_chat'),
+        userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat'),
+      },
+      { status: 429 },
     )
   }
 
@@ -155,12 +163,13 @@ export async function POST(
     const history = prior.map(m => ({ role: m.role, content: m.content }))
     const promptText = message || '（使用者沒有附文字，只附了畫面。請直接針對圖片給第一印象與反應）'
     const reply = await chatWithHistory(systemPrompt, history, promptText, imageParts)
-    incrementQuota('gemini_chat')
+    incrementBoth(auth, 'gemini_chat')
     const assistantMsg = appendMessage(personaId, 'assistant', reply)
     return NextResponse.json({
       user: userMsg,
       assistant: assistantMsg,
       quota: getQuotaStatus('gemini_chat'),
+      userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat'),
     })
   } catch (err) {
     return NextResponse.json(

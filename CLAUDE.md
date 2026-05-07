@@ -119,3 +119,19 @@
 - 其他 GET 與 AI 對話類 endpoint 預設受 proxy 保護（任何登入者皆可使用）
 - Dev 跳過：`NODE_ENV=development` + `AUTH_DEV_BYPASS=1` → 自動給 dev editor session
 - 部署前必設環境變數：`AUTH_SECRET`、`GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`、`ALLOWED_EMAIL_DOMAIN`（或 `ALLOWED_EMAILS`）、`EDITOR_EMAILS`、`AUTH_BASE_URL`
+
+### Audit log（誰做了什麼）
+- 每次 editor mutation 寫一行 NDJSON 到 `data/store/audit-log.ndjson`
+- helper：`logAudit(session, action, resource?, details?)`（`src/lib/audit-log.ts`）
+- 已 wired 的 actions：`upload.create`、`document.update/delete`、`persona.delete/generate`、`keyword.add/delete/toggle`、`report.import_drive`、`rag.index/index_all/index_reset`、`social.fetch`、`survey.monthly_import`、`wiki.ingest`、`embed.create`
+- 查詢：`GET /api/admin/audit-log?limit=200&email=...&action=...&since=ISO`（需 editor）
+
+### Per-user quota（個人 AI 額度）
+- 全域 quota（`_quota.json`）+ 個人 quota（`user-quota.json`）並存，**兩者皆需通過**
+- 預設每日上限（可由 env override）：
+  - editor：`gemini_chat=60`、`gemini_embedding=1000`、`firecrawl_search=30`
+  - viewer：`gemini_chat=30`、`gemini_embedding=500`、`firecrawl_search=10`
+- helper：`checkBoth(session, key)` / `incrementBoth(session, key)`（`src/lib/quota.ts`）
+- 已 wired：`/api/ask`、`/api/personas/{[id]/chat,group-chat,parse-survey,generate}`
+- AI 回應會帶 `quota`（全站）+ `userQuota`（個人）兩個欄位
+- 還沒接的 AI endpoints 仍只用全域 quota（TODO 列表寫在自己 commit 裡）

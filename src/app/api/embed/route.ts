@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { embedDocument } from '@/lib/rag/embedder'
 import { requireEditor } from '@/lib/auth'
+import { logAudit } from '@/lib/audit-log'
 import Papa from 'papaparse'
 
 export async function POST(request: NextRequest) {
@@ -91,6 +92,7 @@ export async function POST(request: NextRequest) {
       .update({ status: 'ready' })
       .eq('id', doc.id)
 
+    logAudit(auth, 'embed.create', `doc:${doc.id}`, { chunks: chunkCount })
     return NextResponse.json({ success: true, chunks: chunkCount })
   } catch (err) {
     console.error('Embed error:', err)

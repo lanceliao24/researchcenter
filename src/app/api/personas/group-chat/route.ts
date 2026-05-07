@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPersona } from '@/lib/persona-store'
 import { chat, generateMultimodal, type MultimodalPart } from '@/lib/gemini'
-import { getQuotaStatus, incrementQuota } from '@/lib/quota'
+import { getQuotaStatus, getUserQuotaStatus, checkBoth, incrementBoth, quotaDeniedMessage } from '@/lib/quota'
+import { requireUser } from '@/lib/auth'
 import {
   getGroupMessages,
   appendGroupMessages,
@@ -133,6 +134,9 @@ export async function DELETE(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireUser(request)
+  if (auth instanceof NextResponse) return auth
+
   const contentType = request.headers.get('content-type') ?? ''
 
   let personaIds: number[] = []
@@ -203,11 +207,15 @@ export async function POST(request: NextRequest) {
     personas.push(p)
   }
 
-  const quota = getQuotaStatus('gemini_chat')
-  if (quota.remaining < personas.length) {
+  const q = checkBoth(auth, 'gemini_chat')
+  if (!q.ok) {
     return NextResponse.json(
-      { error: `額度不足：需要 ${personas.length}，剩餘 ${quota.remaining}`, quota },
-      { status: 429 }
+      {
+        error: quotaDeniedMessage(q.reason),
+        quota: getQuotaStatus('gemini_chat'),
+        userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat'),
+      },
+      { status: 429 },
     )
   }
 
@@ -240,7 +248,7 @@ export async function POST(request: NextRequest) {
       } else {
         reply = await chat(systemPrompt, userPrompt)
       }
-      incrementQuota('gemini_chat')
+      incrementBoth(auth, 'gemini_chat')
       replies.push({
         type: 'persona',
         personaId: self.id,

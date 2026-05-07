@@ -13,6 +13,7 @@ import {
 } from '@/lib/monthly-survey-store'
 import type { SurveyMonthlyImportResult, SurveyMonthlyRawRow } from '@/types'
 import { requireEditor } from '@/lib/auth'
+import { logAudit } from '@/lib/audit-log'
 
 export const runtime = 'nodejs'
 
@@ -85,5 +86,9 @@ export async function POST(req: NextRequest) {
     total_rows: rows.length,
     skipped,
   }
+  logAudit(auth, 'survey.monthly_import', null, {
+    months: result.imported_months,
+    rows: result.total_rows,
+  })
   return NextResponse.json(result)
 }

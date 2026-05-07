@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isLocalMode } from '@/lib/local-mode'
 import { validateUploadFile, type UploadType } from '@/lib/upload-validation'
-import { requireEditor } from '@/lib/auth'
+import { requireEditor, type Session } from '@/lib/auth'
+import { logAudit } from '@/lib/audit-log'
 
 const VALID_TYPES: UploadType[] = ['report', 'survey', 'transcript']
 
@@ -21,13 +22,13 @@ export async function POST(request: NextRequest) {
   }
 
   if (isLocalMode()) {
-    return handleLocalUpload(files, type as UploadType)
+    return handleLocalUpload(files, type as UploadType, auth)
   }
 
   return handleSupabaseUpload(request, files, type)
 }
 
-async function handleLocalUpload(files: File[], type: UploadType) {
+async function handleLocalUpload(files: File[], type: UploadType, session: Session) {
   const { addLocalDocument, saveUploadedFile } = await import('@/lib/local-store')
   const results: Array<unknown> = []
   const rejected: Array<{ name: string; reason: string }> = []
@@ -79,6 +80,14 @@ async function handleLocalUpload(files: File[], type: UploadType) {
     })
 
     results.push(doc)
+  }
+
+  if (results.length > 0) {
+    logAudit(session, 'upload.create', null, {
+      type,
+      count: results.length,
+      titles: results.slice(0, 10).map(r => (r as { title?: string })?.title),
+    })
   }
 
   const status = results.length === 0 && rejected.length > 0 ? 400 : 200

@@ -4,8 +4,9 @@ import fs from 'fs'
 import { parseTranscript, groupBySpeaker, pickInterviewees, buildSpeakerDigest, type SpeakerProfile } from '@/lib/transcript-parser'
 import { upsertPersonaFromSource, inferCategoryFromFile } from '@/lib/persona-store'
 import { chat } from '@/lib/gemini'
-import { getQuotaStatus, incrementQuota } from '@/lib/quota'
+import { getQuotaStatus, getUserQuotaStatus, checkBoth, incrementBoth, quotaDeniedMessage } from '@/lib/quota'
 import { requireEditor } from '@/lib/auth'
+import { logAudit } from '@/lib/audit-log'
 import type { Persona, PersonaCategory } from '@/types'
 
 const VALID_CATEGORIES: PersonaCategory[] = ['租車', '計程車', '共享機車', '其他']
@@ -69,15 +70,16 @@ export async function POST(request: NextRequest) {
   const interviewees = pickInterviewees(profiles, { minTurns, minWords, maxQuestionRatio: 0.5 })
   const selected = interviewees.slice(0, limit)
 
-  const quota = getQuotaStatus('gemini_chat')
-  if (quota.remaining < selected.length) {
+  const q = checkBoth(auth, 'gemini_chat')
+  if (!q.ok) {
     return NextResponse.json(
       {
-        error: `額度不足：需要 ${selected.length}，剩餘 ${quota.remaining}`,
-        quota,
+        error: quotaDeniedMessage(q.reason),
+        quota: getQuotaStatus('gemini_chat'),
+        userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat'),
         eligible: interviewees.length,
       },
-      { status: 429 }
+      { status: 429 },
     )
   }
 
@@ -89,7 +91,7 @@ export async function POST(request: NextRequest) {
     try {
       const digest = buildSpeakerDigest(profile, 8000)
       const json = await generatePersonaJson(digest, profile.speaker)
-      incrementQuota('gemini_chat')
+      incrementBoth(auth, 'gemini_chat')
       const persona = upsertPersonaFromSource({
         name: String(json.name ?? profile.speaker),
         category,
@@ -118,6 +120,12 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  if (created.length > 0) {
+    logAudit(auth, 'persona.generate', null, {
+      count: created.length,
+      filePath: inputPath,
+    })
+  }
   return NextResponse.json({
     created: created.length,
     errors,

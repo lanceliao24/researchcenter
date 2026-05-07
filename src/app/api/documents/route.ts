@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isLocalMode } from '@/lib/local-mode'
 import { requireEditor } from '@/lib/auth'
+import { logAudit } from '@/lib/audit-log'
 
 export async function GET(request: NextRequest) {
   const type = request.nextUrl.searchParams.get('type')
@@ -48,6 +49,7 @@ export async function PATCH(request: NextRequest) {
   if (!updated) {
     return NextResponse.json({ error: 'Document not found' }, { status: 404 })
   }
+  logAudit(auth, 'document.update', `doc:${id}`, { fields: Object.keys(patch) })
   return NextResponse.json({ ok: true, document: updated })
 }
 
@@ -75,5 +77,9 @@ export async function DELETE(request: NextRequest) {
     clearSurveySummary(id)
   }
 
+  logAudit(auth, 'document.delete', `doc:${removed.id}`, {
+    title: removed.title,
+    type: removed.type,
+  })
   return NextResponse.json({ ok: true, removed: { id: removed.id, title: removed.title } })
 }

@@ -3,6 +3,7 @@ import { isLocalMode } from '@/lib/local-mode'
 import { getKeywords, upsertPosts, getLastFetchedAt, pruneOlderThan } from '@/lib/social-store'
 import { checkQuota, incrementQuota, getQuotaStatus } from '@/lib/quota'
 import { requireEditorOrCron } from '@/lib/auth'
+import { logAudit } from '@/lib/audit-log'
 import type { SocialPost } from '@/types'
 
 const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY
@@ -137,6 +138,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (!('cron' in auth)) {
+      logAudit(auth, 'social.fetch', null, {
+        inserted: totalInserted,
+        keywords: toFetch.length,
+      })
+    }
     return NextResponse.json({
       inserted: totalInserted,
       pruned,
