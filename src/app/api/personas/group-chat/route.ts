@@ -1,8 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPersona } from '@/lib/persona-store'
 import { chat, generateMultimodal, type MultimodalPart } from '@/lib/gemini'
-import { getQuotaStatus, getUserQuotaStatus, checkBoth, incrementBoth, quotaDeniedMessage } from '@/lib/quota'
-import { requireUser } from '@/lib/auth'
+import {
+  getQuotaStatus,
+  getUserQuotaStatus,
+  checkBoth,
+  incrementBoth,
+  checkUserQuota,
+  quotaDeniedMessage,
+} from '@/lib/quota'
+import { requireUser, type Role } from '@/lib/auth'
+import { semanticSearch } from '@/lib/rag/local-semantic-retriever'
+
+const QUOTE_RETRIEVE_TOP_K = 3
+const QUOTE_RETRIEVE_MIN_SCORE = 0.3
+const QUOTE_RETRIEVE_MIN_QUERY_LEN = 3
+
+async function retrievePersonaQuotes(
+  personaId: number,
+  query: string,
+  email: string,
+  role: Role,
+): Promise<string[]> {
+  if (!query || query.length < QUOTE_RETRIEVE_MIN_QUERY_LEN) return []
+  if (!checkUserQuota(email, role, 'gemini_embedding').ok) return []
+  try {
+    const hits = await semanticSearch(query, {
+      topK: QUOTE_RETRIEVE_TOP_K,
+      filter: { source_type: 'persona_quote', source_id: personaId },
+    })
+    return hits.filter(h => h.score >= QUOTE_RETRIEVE_MIN_SCORE).map(h => h.text)
+  } catch (err) {
+    console.error('[group-chat] retrieve failed:', err)
+    return []
+  }
+}
 import {
   getGroupMessages,
   appendGroupMessages,
@@ -26,10 +58,17 @@ function parseIdsParam(value: string | null): number[] {
     .filter(n => Number.isFinite(n) && n > 0)
 }
 
-function buildGroupSystemPrompt(self: Persona, others: Persona[]): string {
+function buildGroupSystemPrompt(self: Persona, others: Persona[], relevantQuotes: string[] = []): string {
   const peers = others
     .map(p => `- ${p.name}（${p.age_range}、${p.gender}、${p.occupation}、${p.location}）`)
     .join('\n')
+
+  const quotesBlock = relevantQuotes.length > 0
+    ? `
+
+## 與這次問題最相關的訪談原文（你真的說過的話，請優先以這些段落的語氣與觀點為基礎回答）
+${relevantQuotes.map((q, i) => `${i + 1}. ${q}`).join('\n')}`
+    : ''
 
   return `你正在扮演一位真實受訪者，用於產品 UX 焦點團體訪談。請完全以第一人稱「我」回答，不要跳出角色。
 
@@ -53,10 +92,7 @@ ${self.pain_points.map(p => `- ${p}`).join('\n')}
 ${self.behaviors.map(b => `- ${b}`).join('\n')}
 
 ## 你對租車/計程車/共享機車的偏好
-${self.service_preferences.map(s => `- ${s}`).join('\n')}
-
-## 你曾經說過的話（從訪談逐字稿擷取，回答時盡量參考語氣與觀點）
-${self.transcript_digest}
+${self.service_preferences.map(s => `- ${s}`).join('\n')}${quotesBlock}
 
 ## 訪談現場
 這是一場焦點團體訪談，除了你之外還有其他受訪者在場：
@@ -234,7 +270,13 @@ export async function POST(request: NextRequest) {
 
   for (const self of personas) {
     const others = personas.filter(p => p.id !== self.id)
-    const systemPrompt = buildGroupSystemPrompt(self, others)
+    const relevantQuotes = await retrievePersonaQuotes(
+      self.id,
+      promptForPersona,
+      auth.email,
+      auth.role,
+    )
+    const systemPrompt = buildGroupSystemPrompt(self, others, relevantQuotes)
     const userPrompt = formatTranscript(priorHistory, replies, promptForPersona, self.name, hasImages)
 
     try {

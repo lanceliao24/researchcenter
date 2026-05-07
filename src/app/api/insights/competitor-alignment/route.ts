@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
-import { chat } from '@/lib/gemini'
-import { checkQuota, incrementQuota, getQuotaStatus } from '@/lib/quota'
+import { NextRequest, NextResponse } from 'next/server'
+import { chatPro } from '@/lib/gemini'
+import { checkBoth, incrementBoth, incrementQuota, getQuotaStatus, quotaDeniedMessage } from '@/lib/quota'
+import { requireEditor } from '@/lib/auth'
 import { isLocalMode } from '@/lib/local-mode'
 import {
   readCompetitorAlignment,
@@ -234,7 +235,10 @@ export async function GET() {
   })
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const auth = await requireEditor(req)
+  if (auth instanceof NextResponse) return auth
+
   if (!isLocalMode()) {
     return NextResponse.json({ error: 'production not implemented' }, { status: 501 })
   }
@@ -249,9 +253,9 @@ export async function POST() {
       { status: 429 },
     )
   }
-  const chatQ = checkQuota('gemini_chat')
+  const chatQ = checkBoth(auth, 'gemini_chat_pro')
   if (!chatQ.ok) {
-    return NextResponse.json({ error: 'gemini chat quota exceeded', quota: chatQ }, { status: 429 })
+    return NextResponse.json({ error: quotaDeniedMessage(chatQ.reason) }, { status: 429 })
   }
 
   const our = getOurNegatives()
@@ -267,9 +271,9 @@ export async function POST() {
   const userMsg = buildUserMessage(our.topics, competitorPosts)
   let parsed
   try {
-    const raw = await chat(SYSTEM_PROMPT, userMsg)
+    const raw = await chatPro(SYSTEM_PROMPT, userMsg)
     parsed = parseAlignment(raw)
-    incrementQuota('gemini_chat')
+    incrementBoth(auth, 'gemini_chat_pro')
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 })
   }

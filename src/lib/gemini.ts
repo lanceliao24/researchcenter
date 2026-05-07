@@ -28,6 +28,7 @@ export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
 
 const CHAT_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest']
 const LITE_MODELS = ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-flash-latest']
+const PRO_MODELS = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-flash-latest']
 
 const SANDBOX_SUFFIX = `
 
@@ -87,6 +88,10 @@ export async function chat(systemPrompt: string, userMessage: string): Promise<s
 
 export async function chatLite(systemPrompt: string, userMessage: string): Promise<string> {
   return chatWithModels(LITE_MODELS, systemPrompt, userMessage)
+}
+
+export async function chatPro(systemPrompt: string, userMessage: string): Promise<string> {
+  return chatWithModels(PRO_MODELS, systemPrompt, userMessage)
 }
 
 export interface ChatTurn {

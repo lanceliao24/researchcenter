@@ -128,10 +128,25 @@
 
 ### Per-user quota（個人 AI 額度）
 - 全域 quota（`_quota.json`）+ 個人 quota（`user-quota.json`）並存，**兩者皆需通過**
+- Quota keys：`gemini_chat` / `gemini_chat_pro` / `gemini_embedding` / `firecrawl_search`
 - 預設每日上限（可由 env override）：
-  - editor：`gemini_chat=60`、`gemini_embedding=1000`、`firecrawl_search=30`
-  - viewer：`gemini_chat=30`、`gemini_embedding=500`、`firecrawl_search=10`
+  - editor：chat=60、chat_pro=10、embed=1000、firecrawl=30
+  - viewer：chat=30、**chat_pro=0**（Pro 模型 editor-only）、embed=500、firecrawl=10
 - helper：`checkBoth(session, key)` / `incrementBoth(session, key)`（`src/lib/quota.ts`）
-- 已 wired：`/api/ask`、`/api/personas/{[id]/chat,group-chat,parse-survey,generate}`
 - AI 回應會帶 `quota`（全站）+ `userQuota`（個人）兩個欄位
-- 還沒接的 AI endpoints 仍只用全域 quota（TODO 列表寫在自己 commit 裡）
+- 已接 `gemini_chat`：`/api/ask`、`/api/personas/{[id]/chat,group-chat,parse-survey,ab-test}`
+- 已接 `gemini_chat_pro`：`/api/insights/{overview,monthly-report,topic-alignment,competitor-alignment}`、`/api/personas/generate`
+
+### Gemini 模型分層（src/lib/gemini.ts）
+- `chat()` Flash 主：一般 AI 對話 / 解析 / 萃取
+- `chatLite()` Lite 主：上傳 enrich、單問卷主題摘要、報告推薦
+- `chatPro()` Pro 主（fallback Flash）：5 個 narrative/analysis endpoint，editor-only via Pro quota
+- `chatWithHistory()` Flash + 對話歷史：1:1 persona chat
+- `generateMultimodal()` Flash + 圖：group-chat 帶圖、ab-test
+- `generateEmbedding()` `gemini-embedding-001` fallback chain
+
+### Persona simulator RAG（1:1 / group-chat / ab-test）
+- 訪談原文按 persona 索引為 `source_type='persona_quote'`、`source_id=personaId` 的 vector chunks
+- chat 時依問題（或方案標題+描述）retrieve top-3 段（cosine ≥ 0.3）注入 system prompt
+- 取代靜態 transcript_digest（已從 system prompt 移除）
+- Backfill：`/api/personas/reindex` POST（editor）或 personas 頁「重新索引訪談原文」按鈕

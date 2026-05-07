@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPersona } from '@/lib/persona-store'
 import { generateMultimodal, type MultimodalPart } from '@/lib/gemini'
-import { getQuotaStatus, incrementQuota } from '@/lib/quota'
+import {
+  getQuotaStatus,
+  getUserQuotaStatus,
+  checkBoth,
+  incrementBoth,
+  checkUserQuota,
+  quotaDeniedMessage,
+} from '@/lib/quota'
+import { requireUser, type Role } from '@/lib/auth'
+import { semanticSearch } from '@/lib/rag/local-semantic-retriever'
 import {
   saveChatImage,
   isAllowedImageMime,
@@ -19,6 +28,29 @@ import type {
 } from '@/types'
 
 const TIE_THRESHOLD = 0.3
+const QUOTE_RETRIEVE_TOP_K = 3
+const QUOTE_RETRIEVE_MIN_SCORE = 0.3
+const QUOTE_RETRIEVE_MIN_QUERY_LEN = 3
+
+async function retrievePersonaQuotes(
+  personaId: number,
+  query: string,
+  email: string,
+  role: Role,
+): Promise<string[]> {
+  if (!query || query.length < QUOTE_RETRIEVE_MIN_QUERY_LEN) return []
+  if (!checkUserQuota(email, role, 'gemini_embedding').ok) return []
+  try {
+    const hits = await semanticSearch(query, {
+      topK: QUOTE_RETRIEVE_TOP_K,
+      filter: { source_type: 'persona_quote', source_id: personaId },
+    })
+    return hits.filter(h => h.score >= QUOTE_RETRIEVE_MIN_SCORE).map(h => h.text)
+  } catch (err) {
+    console.error('[ab-test] retrieve failed:', err)
+    return []
+  }
+}
 
 interface PreparedOption {
   label: 'A' | 'B'
@@ -28,7 +60,13 @@ interface PreparedOption {
   parts: MultimodalPart[]
 }
 
-function buildSystemPrompt(persona: Persona): string {
+function buildSystemPrompt(persona: Persona, relevantQuotes: string[] = []): string {
+  const quotesBlock = relevantQuotes.length > 0
+    ? `
+
+## 與這個方案最相關的訪談原文（你真的說過的話，請優先以這些段落的語氣與觀點為基礎反應）
+${relevantQuotes.map((q, i) => `${i + 1}. ${q}`).join('\n')}`
+    : ''
   return `你正在扮演一位真實受訪者 ${persona.name}。研究員在做產品方案測試，會給你一個方案（含描述與/或畫面），請用第一人稱、口語、像真人訪談那樣，講你看完後的真實反應。
 
 ## 你的身分
@@ -51,10 +89,7 @@ ${persona.pain_points.map(p => `- ${p}`).join('\n')}
 ${persona.behaviors.map(b => `- ${b}`).join('\n')}
 
 ## 你對租車/計程車/共享機車的偏好
-${persona.service_preferences.map(s => `- ${s}`).join('\n')}
-
-## 你曾經說過的話（從訪談逐字稿擷取，回答時盡量參考語氣與觀點）
-${persona.transcript_digest}
+${persona.service_preferences.map(s => `- ${s}`).join('\n')}${quotesBlock}
 
 ## 回答規則
 - 只回答「你對這個方案的真實反應」：會不會用？為什麼會/不會？有沒有擔心的點？
@@ -108,9 +143,10 @@ function buildOptionParts(option: PreparedOption): MultimodalPart[] {
 
 async function assessOption(
   persona: Persona,
-  option: PreparedOption
+  option: PreparedOption,
+  relevantQuotes: string[],
 ): Promise<ABTestOptionAssessment> {
-  const systemPrompt = buildSystemPrompt(persona)
+  const systemPrompt = buildSystemPrompt(persona, relevantQuotes)
   const userParts = buildOptionParts(option)
   const reaction = (await generateMultimodal(systemPrompt, userParts)).trim()
   const result = await scoreUsageIntent(reaction)
@@ -129,6 +165,9 @@ function decideWinner(scoreA: number, scoreB: number): ABTestWinner {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireUser(request)
+  if (auth instanceof NextResponse) return auth
+
   const contentType = request.headers.get('content-type') ?? ''
   if (!contentType.includes('multipart/form-data')) {
     return NextResponse.json({ error: '需要 multipart/form-data' }, { status: 400 })
@@ -173,15 +212,15 @@ export async function POST(request: NextRequest) {
     personas.push(p)
   }
 
-  const neededQuota = personas.length * 2
-  const quota = getQuotaStatus('gemini_chat')
-  if (quota.remaining < neededQuota) {
+  const q = checkBoth(auth, 'gemini_chat')
+  if (!q.ok) {
     return NextResponse.json(
       {
-        error: `額度不足：需要 ${neededQuota}（每 persona 2 次），剩餘 ${quota.remaining}`,
-        quota,
+        error: quotaDeniedMessage(q.reason),
+        quota: getQuotaStatus('gemini_chat'),
+        userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat'),
       },
-      { status: 429 }
+      { status: 429 },
     )
   }
 
@@ -200,14 +239,21 @@ export async function POST(request: NextRequest) {
     parts: imgB.parts,
   }
 
+  const optionAQuery = `${optionA.title}\n${optionA.description}`.trim()
+  const optionBQuery = `${optionB.title}\n${optionB.description}`.trim()
+
   const responses: ABTestResponse[] = await Promise.all(
     personas.map(async (persona) => {
-      const [resA, resB] = await Promise.allSettled([
-        assessOption(persona, optionA),
-        assessOption(persona, optionB),
+      const [quotesA, quotesB] = await Promise.all([
+        retrievePersonaQuotes(persona.id, optionAQuery, auth.email, auth.role),
+        retrievePersonaQuotes(persona.id, optionBQuery, auth.email, auth.role),
       ])
-      if (resA.status === 'fulfilled') incrementQuota('gemini_chat')
-      if (resB.status === 'fulfilled') incrementQuota('gemini_chat')
+      const [resA, resB] = await Promise.allSettled([
+        assessOption(persona, optionA, quotesA),
+        assessOption(persona, optionB, quotesB),
+      ])
+      if (resA.status === 'fulfilled') incrementBoth(auth, 'gemini_chat')
+      if (resB.status === 'fulfilled') incrementBoth(auth, 'gemini_chat')
       if (resA.status !== 'fulfilled' || resB.status !== 'fulfilled') {
         const failed = resA.status === 'rejected' ? resA.reason : (resB as PromiseRejectedResult).reason
         return {

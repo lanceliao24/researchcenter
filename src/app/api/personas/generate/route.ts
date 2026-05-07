@@ -3,7 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import { parseTranscript, groupBySpeaker, pickInterviewees, buildSpeakerDigest, type SpeakerProfile } from '@/lib/transcript-parser'
 import { upsertPersonaFromSource, inferCategoryFromFile } from '@/lib/persona-store'
-import { chat } from '@/lib/gemini'
+import { chatPro } from '@/lib/gemini'
 import { getQuotaStatus, getUserQuotaStatus, checkBoth, incrementBoth, quotaDeniedMessage } from '@/lib/quota'
 import { requireEditor } from '@/lib/auth'
 import { logAudit } from '@/lib/audit-log'
@@ -39,7 +39,7 @@ const SYSTEM_PROMPT = `你是一位 UX 研究員，擅長從使用者訪談逐�
 
 async function generatePersonaJson(digest: string, seed: string): Promise<Record<string, unknown>> {
   const userMessage = `以下是受訪者「${seed}」的訪談片段：\n\n${digest}\n\n請產出 persona JSON：`
-  const raw = await chat(SYSTEM_PROMPT, userMessage)
+  const raw = await chatPro(SYSTEM_PROMPT, userMessage)
   const cleaned = raw.replace(/^```json\s*|\s*```$/g, '').replace(/^```\s*|\s*```$/g, '').trim()
   const jsonStart = cleaned.indexOf('{')
   const jsonEnd = cleaned.lastIndexOf('}')
@@ -70,13 +70,13 @@ export async function POST(request: NextRequest) {
   const interviewees = pickInterviewees(profiles, { minTurns, minWords, maxQuestionRatio: 0.5 })
   const selected = interviewees.slice(0, limit)
 
-  const q = checkBoth(auth, 'gemini_chat')
+  const q = checkBoth(auth, 'gemini_chat_pro')
   if (!q.ok) {
     return NextResponse.json(
       {
         error: quotaDeniedMessage(q.reason),
-        quota: getQuotaStatus('gemini_chat'),
-        userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat'),
+        quota: getQuotaStatus('gemini_chat_pro'),
+        userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat_pro'),
         eligible: interviewees.length,
       },
       { status: 429 },
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     try {
       const digest = buildSpeakerDigest(profile, 8000)
       const json = await generatePersonaJson(digest, profile.speaker)
-      incrementBoth(auth, 'gemini_chat')
+      incrementBoth(auth, 'gemini_chat_pro')
       const persona = upsertPersonaFromSource({
         name: String(json.name ?? profile.speaker),
         category,
@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
     errors,
     eligible: interviewees.length,
     totalSpeakers: profiles.length,
-    quota: getQuotaStatus('gemini_chat'),
+    quota: getQuotaStatus('gemini_chat_pro'),
     personas: created,
   })
 }
@@ -162,6 +162,6 @@ export async function GET() {
       wordCount: p.wordCount,
       questionRatio: Number(p.questionRatio.toFixed(2)),
     })),
-    quota: getQuotaStatus('gemini_chat'),
+    quota: getQuotaStatus('gemini_chat_pro'),
   })
 }
