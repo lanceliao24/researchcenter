@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 import { isLocalMode } from '@/lib/local-mode'
 import { validateUploadFile, type UploadType } from '@/lib/upload-validation'
 import { requireEditor, type Session } from '@/lib/auth'
 import { logAudit } from '@/lib/audit-log'
+
+function sha256Hex(buf: Buffer): string {
+  return crypto.createHash('sha256').update(buf).digest('hex')
+}
 
 const VALID_TYPES: UploadType[] = ['report', 'survey', 'transcript']
 
@@ -29,9 +34,15 @@ export async function POST(request: NextRequest) {
 }
 
 async function handleLocalUpload(files: File[], type: UploadType, session: Session) {
-  const { addLocalDocument, saveUploadedFile } = await import('@/lib/local-store')
+  const { addLocalDocument, saveUploadedFile, findDocumentByHash } = await import('@/lib/local-store')
   const results: Array<unknown> = []
   const rejected: Array<{ name: string; reason: string }> = []
+  const duplicates: Array<{
+    name: string
+    existingId: number
+    existingTitle: string
+    contentHash: string
+  }> = []
 
   for (const file of files) {
     const buffer = Buffer.from(await file.arrayBuffer())
@@ -41,15 +52,27 @@ async function handleLocalUpload(files: File[], type: UploadType, session: Sessi
       continue
     }
 
+    const contentHash = sha256Hex(buffer)
+    const existing = findDocumentByHash(contentHash)
+    if (existing) {
+      duplicates.push({
+        name: file.name,
+        existingId: existing.id,
+        existingTitle: existing.title,
+        contentHash,
+      })
+      continue
+    }
+
     if (type === 'report') {
       const { ingestReportBuffer } = await import('@/lib/report-ingest')
-      const doc = await ingestReportBuffer(buffer, file.name, file.type)
+      const doc = await ingestReportBuffer(buffer, file.name, file.type, contentHash)
       results.push(doc)
       continue
     }
 
     const relativePath = saveUploadedFile(buffer, file.name, type)
-    let metadata: Record<string, unknown> = { size: file.size, mime: file.type }
+    let metadata: Record<string, unknown> = { size: file.size, mime: file.type, contentHash }
 
     if (type === 'survey' && file.name.endsWith('.csv')) {
       const text = buffer.toString('utf-8')
@@ -92,7 +115,7 @@ async function handleLocalUpload(files: File[], type: UploadType, session: Sessi
 
   const status = results.length === 0 && rejected.length > 0 ? 400 : 200
   return NextResponse.json(
-    { uploaded: results.length, documents: results, rejected },
+    { uploaded: results.length, documents: results, rejected, duplicates },
     { status },
   )
 }

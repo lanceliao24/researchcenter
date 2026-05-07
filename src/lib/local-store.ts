@@ -35,6 +35,16 @@ export function getLocalDocuments(type?: string): Document[] {
   return store.documents
 }
 
+export function findDocumentByHash(hash: string): Document | null {
+  if (!hash) return null
+  const store = readStore()
+  for (const doc of store.documents) {
+    const meta = doc.metadata as Record<string, unknown> | null
+    if (meta && meta.contentHash === hash) return doc
+  }
+  return null
+}
+
 export function addLocalDocument(doc: Omit<Document, 'id' | 'created_at'>): Document {
   const store = readStore()
   const newDoc: Document = {

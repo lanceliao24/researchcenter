@@ -7,9 +7,11 @@ export async function ingestReportBuffer(
   buffer: Buffer,
   filename: string,
   mime = '',
+  contentHash?: string,
 ): Promise<Document> {
   const relativePath = saveUploadedFile(buffer, filename, 'report')
   let metadata: Record<string, unknown> = { size: buffer.length, mime }
+  if (contentHash) metadata.contentHash = contentHash
   let extractedText = ''
 
   const lower = filename.toLowerCase()

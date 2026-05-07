@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 import { isLocalMode } from '@/lib/local-mode'
 import { validateUploadFile } from '@/lib/upload-validation'
 import { requireEditor } from '@/lib/auth'
@@ -118,7 +119,18 @@ export async function POST(request: NextRequest) {
         results.push({ url, ok: false, error: `驗證失敗：${v.reason}` })
         continue
       }
-      const doc = await ingestReportBuffer(buffer, name, mime)
+      const contentHash = crypto.createHash('sha256').update(buffer).digest('hex')
+      const { findDocumentByHash } = await import('@/lib/local-store')
+      const existing = findDocumentByHash(contentHash)
+      if (existing) {
+        results.push({
+          url,
+          ok: false,
+          error: `已匯入過：${existing.title}（id ${existing.id}）`,
+        })
+        continue
+      }
+      const doc = await ingestReportBuffer(buffer, name, mime, contentHash)
       results.push({ url, ok: true, doc: { id: doc.id, title: doc.title } })
     } catch (err) {
       results.push({ url, ok: false, error: (err as Error).message })

@@ -17,9 +17,21 @@ const typeLabels = {
   report: '研究報告（PDF / PPTX / DOCX / MD / TXT）',
 }
 
+interface UploadDuplicate {
+  name: string
+  existingTitle: string
+  existingId: number
+}
+interface UploadRejected {
+  name: string
+  reason: string
+}
+
 export function FileUploader({ type, accept }: FileUploaderProps) {
   const [uploading, setUploading] = useState(false)
   const [done, setDone] = useState(false)
+  const [duplicates, setDuplicates] = useState<UploadDuplicate[]>([])
+  const [rejected, setRejected] = useState<UploadRejected[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
@@ -29,6 +41,8 @@ export function FileUploader({ type, accept }: FileUploaderProps) {
 
     setUploading(true)
     setDone(false)
+    setDuplicates([])
+    setRejected([])
 
     const formData = new FormData()
     for (const file of Array.from(files)) {
@@ -41,12 +55,23 @@ export function FileUploader({ type, accept }: FileUploaderProps) {
         method: 'POST',
         body: formData,
       })
-      if (res.ok) {
+      const data = await res.json().catch(() => ({})) as {
+        uploaded?: number
+        duplicates?: UploadDuplicate[]
+        rejected?: UploadRejected[]
+      }
+      const dups = data.duplicates ?? []
+      const rejs = data.rejected ?? []
+      setDuplicates(dups)
+      setRejected(rejs)
+      if (res.ok && (data.uploaded ?? 0) > 0) {
         setDone(true)
         setTimeout(() => {
           setDone(false)
           router.refresh()
         }, 2000)
+      } else if (dups.length > 0 || rejs.length > 0) {
+        // skip success state, leave warnings visible
       }
     } catch (err) {
       console.error('Upload failed:', err)
@@ -92,6 +117,29 @@ export function FileUploader({ type, accept }: FileUploaderProps) {
               選擇檔案 ({accept})
             </Button>
           </>
+        )}
+
+        {duplicates.length > 0 && (
+          <div className="w-full mt-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+            <p className="font-medium mb-1">已存在相同內容（已跳過）：</p>
+            <ul className="space-y-0.5">
+              {duplicates.map(d => (
+                <li key={d.existingId}>
+                  · {d.name} ↔ <span className="font-mono">{d.existingTitle}</span>（id {d.existingId}）
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {rejected.length > 0 && (
+          <div className="w-full mt-2 rounded-md border border-red-300 bg-red-50 p-3 text-xs text-red-900">
+            <p className="font-medium mb-1">驗證失敗：</p>
+            <ul className="space-y-0.5">
+              {rejected.map((r, i) => (
+                <li key={i}>· {r.name}：{r.reason}</li>
+              ))}
+            </ul>
+          </div>
         )}
       </CardContent>
     </Card>
