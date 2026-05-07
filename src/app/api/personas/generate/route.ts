@@ -115,6 +115,13 @@ export async function POST(request: NextRequest) {
         },
       })
       created.push(persona)
+
+      try {
+        const { indexPersonaQuotes } = await import('@/lib/rag/persona-indexer')
+        await indexPersonaQuotes(persona)
+      } catch (err) {
+        console.error(`[persona-index] ${persona.id} failed:`, err)
+      }
     } catch (err) {
       errors.push({ speaker: profile.speaker, error: (err as Error).message })
     }

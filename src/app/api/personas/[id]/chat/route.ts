@@ -11,6 +11,35 @@ import {
   MAX_IMAGES_PER_MESSAGE,
   ImageValidationError,
 } from '@/lib/chat-image-store'
+import { semanticSearch } from '@/lib/rag/local-semantic-retriever'
+import { checkUserQuota } from '@/lib/quota'
+
+const QUOTE_RETRIEVE_TOP_K = 3
+const QUOTE_RETRIEVE_MIN_SCORE = 0.3
+const QUOTE_RETRIEVE_MIN_QUERY_LEN = 3
+
+async function retrievePersonaQuotes(
+  personaId: number,
+  query: string,
+  email: string,
+  role: 'editor' | 'viewer',
+): Promise<string[]> {
+  if (!query || query.length < QUOTE_RETRIEVE_MIN_QUERY_LEN) return []
+  const q = checkUserQuota(email, role, 'gemini_embedding')
+  if (!q.ok) return []
+  try {
+    const hits = await semanticSearch(query, {
+      topK: QUOTE_RETRIEVE_TOP_K,
+      filter: { source_type: 'persona_quote', source_id: personaId },
+    })
+    return hits
+      .filter(h => h.score >= QUOTE_RETRIEVE_MIN_SCORE)
+      .map(h => h.text)
+  } catch (err) {
+    console.error('[persona-chat] retrieve failed:', err)
+    return []
+  }
+}
 
 function buildSystemPrompt(persona: {
   name: string
@@ -27,7 +56,13 @@ function buildSystemPrompt(persona: {
   quotes: string[]
   tags: string[]
   transcript_digest: string
-}): string {
+}, relevantQuotes: string[] = []): string {
+  const quotesBlock = relevantQuotes.length > 0
+    ? `
+
+## 與這次問題最相關的訪談原文（你真的說過的話，請優先參考語氣與觀點）
+${relevantQuotes.map((q, i) => `${i + 1}. ${q}`).join('\n')}`
+    : ''
   return `你正在扮演一位真實受訪者，用於產品 UX 測試對話。請完全以第一人稱「我」回答，不要跳出角色。
 
 ## 你的身分
@@ -53,7 +88,7 @@ ${persona.behaviors.map(b => `- ${b}`).join('\n')}
 ${persona.service_preferences.map(s => `- ${s}`).join('\n')}
 
 ## 你曾經說過的話（從訪談逐字稿擷取，回答時盡量參考語氣與觀點）
-${persona.transcript_digest}
+${persona.transcript_digest}${quotesBlock}
 
 ## 說話規則
 - 用繁體中文回答，可自然夾雜英文（和原訪談語氣一致）
@@ -159,7 +194,13 @@ export async function POST(
   const userMsg = appendMessage(personaId, 'user', message, imageUrls)
 
   try {
-    const systemPrompt = buildSystemPrompt(persona)
+    const relevantQuotes = await retrievePersonaQuotes(
+      personaId,
+      message,
+      auth.email,
+      auth.role,
+    )
+    const systemPrompt = buildSystemPrompt(persona, relevantQuotes)
     const history = prior.map(m => ({ role: m.role, content: m.content }))
     const promptText = message || '（使用者沒有附文字，只附了畫面。請直接針對圖片給第一印象與反應）'
     const reply = await chatWithHistory(systemPrompt, history, promptText, imageParts)

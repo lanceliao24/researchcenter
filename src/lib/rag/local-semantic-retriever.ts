@@ -42,6 +42,7 @@ export interface SemanticSearchFilter {
   category?: PersonaCategory | PersonaCategory[]
   jtbd_stage?: string
   document_id?: number | number[]
+  source_id?: number | number[]
 }
 
 export interface SemanticSearchOptions {
@@ -181,6 +182,10 @@ function matchesFilter(record: VectorRecord, filter?: SemanticSearchFilter): boo
     const allowed = Array.isArray(filter.document_id) ? filter.document_id : [filter.document_id]
     const docId = (record.metadata.document_id as number | undefined) ?? record.source_id
     if (!allowed.includes(docId)) return false
+  }
+  if (filter.source_id !== undefined) {
+    const allowed = Array.isArray(filter.source_id) ? filter.source_id : [filter.source_id]
+    if (!allowed.includes(record.source_id)) return false
   }
   return true
 }

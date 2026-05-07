@@ -58,6 +58,7 @@ export default function PersonasPage() {
   const [personas, setPersonas] = useState<Persona[]>([])
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [reindexing, setReindexing] = useState(false)
   const [preview, setPreview] = useState<PreviewInfo | null>(null)
   const [filePath, setFilePath] = useState('/Users/lanceliao/Downloads/rental.yml')
   const [limit, setLimit] = useState(10)
@@ -113,6 +114,29 @@ export default function PersonasPage() {
     loadPersonas()
     loadPreview()
   }, [loadPersonas, loadPreview])
+
+  async function handleReindex() {
+    if (!confirm(`重新索引所有 ${personas.length} 個 persona 的訪談原文？\n（每個 persona 會消耗 ~20-50 個 embedding 配額）`)) return
+    setReindexing(true)
+    setMessage(null)
+    try {
+      const res = await fetch('/api/personas/reindex', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setMessage(data.error ?? '索引失敗')
+      } else {
+        setMessage(`已索引 ${data.results?.length ?? 0} 個 persona，共 ${data.totalIndexed} 個 chunks`)
+      }
+    } catch (err) {
+      setMessage((err as Error).message)
+    } finally {
+      setReindexing(false)
+    }
+  }
 
   async function handleGenerate() {
     setGenerating(true)
@@ -218,6 +242,22 @@ export default function PersonasPage() {
               )}
               產生 Persona
             </Button>
+            {personas.length > 0 && (
+              <Button
+                onClick={handleReindex}
+                disabled={reindexing}
+                size="sm"
+                variant="outline"
+                title="重新把每個 persona 的訪談原文切 chunk + embedding，讓 1:1 chat 能引用更精準的原話"
+              >
+                {reindexing ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                )}
+                重新索引訪談原文
+              </Button>
+            )}
           </div>
 
           {preview?.available && (

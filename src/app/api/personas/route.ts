@@ -15,6 +15,12 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'id required' }, { status: 400 })
   }
   removePersona(id)
+  try {
+    const { deletePersonaQuotes } = await import('@/lib/rag/persona-indexer')
+    deletePersonaQuotes(id)
+  } catch (err) {
+    console.error(`[persona-index] delete ${id} failed:`, err)
+  }
   logAudit(auth, 'persona.delete', `persona:${id}`)
   return NextResponse.json({ ok: true })
 }
