@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { embedDocument } from '@/lib/rag/embedder'
+import { requireEditor } from '@/lib/auth'
 import Papa from 'papaparse'
 
 export async function POST(request: NextRequest) {
+  const auth = await requireEditor(request)
+  if (auth instanceof NextResponse) return auth
   const { documentId } = await request.json()
 
   if (!documentId) {

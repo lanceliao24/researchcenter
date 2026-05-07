@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 import { resolveRelativeFilePath } from '@/lib/paths'
+import { requireUser } from '@/lib/auth'
 
 const MIME_BY_EXT: Record<string, string> = {
   '.pdf': 'application/pdf',
@@ -19,9 +20,11 @@ const MIME_BY_EXT: Record<string, string> = {
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ slug: string[] }> },
 ) {
+  const auth = await requireUser(req)
+  if (auth instanceof NextResponse) return auth
   const { slug } = await params
   if (!slug || slug.length === 0) {
     return NextResponse.json({ error: 'Missing path' }, { status: 400 })

@@ -5,6 +5,7 @@ import { parseTranscript, groupBySpeaker, pickInterviewees, buildSpeakerDigest, 
 import { upsertPersonaFromSource, inferCategoryFromFile } from '@/lib/persona-store'
 import { chat } from '@/lib/gemini'
 import { getQuotaStatus, incrementQuota } from '@/lib/quota'
+import { requireEditor } from '@/lib/auth'
 import type { Persona, PersonaCategory } from '@/types'
 
 const VALID_CATEGORIES: PersonaCategory[] = ['租車', '計程車', '共享機車', '其他']
@@ -46,6 +47,8 @@ async function generatePersonaJson(digest: string, seed: string): Promise<Record
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireEditor(request)
+  if (auth instanceof NextResponse) return auth
   const body = await request.json().catch(() => ({}))
   const inputPath: string = body.filePath || '/Users/lanceliao/Downloads/rental.yml'
   const minTurns: number = body.minTurns ?? 30

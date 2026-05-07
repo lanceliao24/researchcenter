@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isLocalMode } from '@/lib/local-mode'
+import { requireEditor } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   const type = request.nextUrl.searchParams.get('type')
@@ -19,6 +20,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const auth = await requireEditor(request)
+  if (auth instanceof NextResponse) return auth
   if (!isLocalMode()) {
     return NextResponse.json({ error: 'Not implemented for remote mode' }, { status: 501 })
   }
@@ -49,6 +52,8 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const auth = await requireEditor(request)
+  if (auth instanceof NextResponse) return auth
   const idParam = request.nextUrl.searchParams.get('id')
   const id = Number(idParam)
   if (!Number.isFinite(id)) {

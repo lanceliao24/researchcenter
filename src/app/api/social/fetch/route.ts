@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isLocalMode } from '@/lib/local-mode'
 import { getKeywords, upsertPosts, getLastFetchedAt, pruneOlderThan } from '@/lib/social-store'
 import { checkQuota, incrementQuota, getQuotaStatus } from '@/lib/quota'
+import { requireEditorOrCron } from '@/lib/auth'
 import type { SocialPost } from '@/types'
 
 const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY
@@ -81,6 +82,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireEditorOrCron(request)
+  if (auth instanceof NextResponse) return auth
   if (!FIRECRAWL_API_KEY || FIRECRAWL_API_KEY.includes('placeholder')) {
     return NextResponse.json({ error: 'FIRECRAWL_API_KEY not configured' }, { status: 500 })
   }

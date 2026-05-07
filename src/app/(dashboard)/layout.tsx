@@ -1,34 +1,18 @@
 import { redirect } from 'next/navigation'
-import { isLocalMode } from '@/lib/local-mode'
 import { Header } from '@/components/layout/Header'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Footer } from '@/components/layout/Footer'
+import { getSessionFromCookies } from '@/lib/auth'
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  let email = 'demo@research-center.tw'
-  let role = 'admin'
-
-  if (!isLocalMode()) {
-    const { createClient } = await import('@/lib/supabase/server')
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      redirect('/login')
-    }
-
-    email = user.email || email
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-    role = profile?.role || role
-  }
+  const session = await getSessionFromCookies()
+  if (!session) redirect('/login')
+  const email = session.email
+  const role = session.role
 
   return (
     <div className="min-h-screen bg-background">

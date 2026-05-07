@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isLocalMode } from '@/lib/local-mode'
 import { validateUploadFile } from '@/lib/upload-validation'
+import { requireEditor } from '@/lib/auth'
 
 const FILE_ID_PATTERNS = [
   /\/file\/d\/([a-zA-Z0-9_-]+)/,
@@ -72,6 +73,8 @@ async function fetchDriveFile(
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireEditor(request)
+  if (auth instanceof NextResponse) return auth
   if (!isLocalMode()) {
     return NextResponse.json({ error: 'Not implemented for remote mode' }, { status: 501 })
   }

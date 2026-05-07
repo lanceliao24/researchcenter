@@ -97,3 +97,25 @@
 ### Slash command / 快捷
 - 從外部開專案：`rc`（shell alias，`~/.zshrc`）
 - 在 cc session 內恢復狀態：`/research-center`（user-level slash command）
+
+### Auth（Google Workspace SSO + Editor / Viewer 角色）
+- 全站由 `proxy.ts`（Next 16 中介層，舊稱 middleware）擋未登入請求
+  - 未登入打 `/api/*` → 401 JSON
+  - 未登入打頁面 → 302 redirect 到 `/login?next=...`
+  - 公開白名單：`/login`、`/api/auth/google/{start,callback}`、`/api/auth/logout`、`/api/social/cron`
+- `src/lib/auth.ts` 提供
+  - `requireUser(req)` / `requireEditor(req)` — handler 一行 guard，回傳 `Session` 或 `NextResponse`（401/403）
+  - `requireEditorOrCron(req)` — 接受 editor session 或 `Authorization: Bearer ${CRON_SECRET}`
+  - `getSessionFromRequest(req)` / `getSessionFromCookies()` — server component 用
+  - HMAC-SHA256 signed JWT cookie（`rc_session`，7 天 TTL，HttpOnly + SameSite=Lax + Secure on https）
+- 角色判定
+  - `ALLOWED_EMAIL_DOMAIN` + `ALLOWED_EMAILS` 決定誰能進來
+  - `EDITOR_EMAILS` 名單決定 editor，其他登入者皆為 viewer
+- 已包 `requireEditor` 的 routes（mutating only）：
+  - `/api/upload`、`/api/documents`（PATCH/DELETE）、`/api/personas`（DELETE）、`/api/personas/generate`
+  - `/api/reports/import-drive`、`/api/rag/index`、`/api/social/keywords`、`/api/social/fetch`（or cron）
+  - `/api/surveys/monthly-import`、`/api/wiki/ingest`、`/api/embed`
+- `/api/files/[...slug]` 包 `requireUser`（檔案 streaming 限登入者）
+- 其他 GET 與 AI 對話類 endpoint 預設受 proxy 保護（任何登入者皆可使用）
+- Dev 跳過：`NODE_ENV=development` + `AUTH_DEV_BYPASS=1` → 自動給 dev editor session
+- 部署前必設環境變數：`AUTH_SECRET`、`GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`、`ALLOWED_EMAIL_DOMAIN`（或 `ALLOWED_EMAILS`）、`EDITOR_EMAILS`、`AUTH_BASE_URL`

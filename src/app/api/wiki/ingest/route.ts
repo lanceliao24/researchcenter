@@ -11,8 +11,11 @@ import {
   readWikiPage,
   type WikiPageMeta,
 } from '@/lib/wiki'
+import { requireEditor } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
+  const auth = await requireEditor(request)
+  if (auth instanceof NextResponse) return auth
   const { sourceId, sourceType, sourceTitle, sourceContent } = await request.json()
 
   if (!sourceContent || !sourceTitle) {

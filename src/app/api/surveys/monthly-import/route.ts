@@ -12,10 +12,13 @@ import {
   upsertMonthRawRows,
 } from '@/lib/monthly-survey-store'
 import type { SurveyMonthlyImportResult, SurveyMonthlyRawRow } from '@/types'
+import { requireEditor } from '@/lib/auth'
 
 export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
+  const auth = await requireEditor(req)
+  if (auth instanceof NextResponse) return auth
   if (!isLocalMode()) {
     return NextResponse.json(
       { error: 'production import not yet implemented' },

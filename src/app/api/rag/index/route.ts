@@ -7,6 +7,7 @@ import {
 } from '@/lib/rag/raw-indexer'
 import { deleteAll, getIndexStats } from '@/lib/rag/local-semantic-retriever'
 import { getQuotaStatus, QuotaExceededError } from '@/lib/quota'
+import { requireEditor } from '@/lib/auth'
 
 export async function GET() {
   const stats = getIndexStats()
@@ -17,6 +18,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireEditor(request)
+  if (auth instanceof NextResponse) return auth
   const body = await request.json().catch(() => ({}))
   const { document_id, all, themes_only, reset, max_records } = body as {
     document_id?: number

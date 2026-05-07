@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isLocalMode } from '@/lib/local-mode'
 import { validateUploadFile, type UploadType } from '@/lib/upload-validation'
+import { requireEditor } from '@/lib/auth'
 
 const VALID_TYPES: UploadType[] = ['report', 'survey', 'transcript']
 
 export async function POST(request: NextRequest) {
+  const auth = await requireEditor(request)
+  if (auth instanceof NextResponse) return auth
   const formData = await request.formData()
   const files = formData.getAll('files') as File[]
   const type = formData.get('type') as string
