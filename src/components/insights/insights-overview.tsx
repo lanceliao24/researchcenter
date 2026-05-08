@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Sparkles, Loader2, RefreshCw, AlertTriangle, TrendingUp, Info } from 'lucide-react'
 import type { DashboardInsight, DashboardInsightsSnapshot } from '@/lib/dashboard-insights-store'
+import { useElapsed } from '@/lib/useElapsed'
 
 const toneStyles: Record<DashboardInsight['tone'], { bar: string; icon: React.ComponentType<{ className?: string }>; iconCls: string }> = {
   positive: {
@@ -37,6 +38,7 @@ export function InsightsOverview() {
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const elapsed = useElapsed(running)
 
   useEffect(() => {
     fetch('/api/insights/overview')
@@ -88,7 +90,7 @@ export function InsightsOverview() {
           disabled={running}
         >
           {running ? (
-            <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />分析中</>
+            <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Pro 深度分析中{elapsed > 0 ? ` (${elapsed}s)` : ''}</>
           ) : snapshot ? (
             <><RefreshCw className="h-3.5 w-3.5 mr-1.5" />重新分析</>
           ) : (
@@ -98,6 +100,11 @@ export function InsightsOverview() {
       </CardHeader>
       <CardContent className="flex-1 flex flex-col">
         {error && <p className="text-xs text-destructive mb-3">{error}</p>}
+        {running && (
+          <p className="text-xs text-muted-foreground mb-3">
+            Gemini 2.5 Pro 正在綜合問卷 + 社群資料生成洞察，預計 10–30 秒。
+          </p>
+        )}
         {loading ? (
           <p className="text-xs text-muted-foreground text-center flex-1 flex items-center justify-center">載入中...</p>
         ) : !snapshot ? (

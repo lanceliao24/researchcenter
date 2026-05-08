@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Sparkles, Loader2, RefreshCw, Swords, AlertTriangle } from 'lucide-react'
 import type { CompetitorAlignmentSnapshot } from '@/lib/competitor-alignment-store'
+import { useElapsed } from '@/lib/useElapsed'
 
 export function CompetitorAlignmentCard() {
   const [snapshot, setSnapshot] = useState<CompetitorAlignmentSnapshot | null>(null)
@@ -13,6 +14,7 @@ export function CompetitorAlignmentCard() {
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [quota, setQuota] = useState<{ firecrawl: { remaining: number; limit: number }; chat: { remaining: number; limit: number } } | null>(null)
+  const elapsed = useElapsed(running)
 
   useEffect(() => {
     fetch('/api/insights/competitor-alignment')
@@ -69,7 +71,7 @@ export function CompetitorAlignmentCard() {
           disabled={running}
         >
           {running ? (
-            <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />分析中</>
+            <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Pro 深度分析中{elapsed > 0 ? ` (${elapsed}s)` : ''}</>
           ) : snapshot ? (
             <><RefreshCw className="h-3.5 w-3.5 mr-1.5" />重新分析</>
           ) : (
@@ -79,6 +81,11 @@ export function CompetitorAlignmentCard() {
       </CardHeader>
       <CardContent>
         {error && <p className="text-xs text-destructive mb-3">{error}</p>}
+        {running && (
+          <p className="text-xs text-muted-foreground mb-3">
+            Firecrawl 抓取競品社群 + Gemini 2.5 Pro 比對議題，預計 20–40 秒。
+          </p>
+        )}
         {loading ? (
           <p className="text-xs text-muted-foreground text-center py-6">載入中...</p>
         ) : !snapshot ? (

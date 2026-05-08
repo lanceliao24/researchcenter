@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { FileText, Sparkles, Loader2, RefreshCw, AlertTriangle, TrendingUp, Info, Lightbulb, Download } from 'lucide-react'
 import type { MonthlyReportSnapshot, ReportFinding } from '@/lib/monthly-report-store'
+import { useElapsed } from '@/lib/useElapsed'
 
 const toneStyles: Record<ReportFinding['tone'], { bar: string; icon: React.ComponentType<{ className?: string }>; iconCls: string; badgeCls: string; label: string }> = {
   positive: {
@@ -36,6 +37,7 @@ export function MonthlyReportCard() {
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const elapsed = useElapsed(running)
 
   useEffect(() => {
     fetch('/api/insights/monthly-report')
@@ -97,7 +99,7 @@ export function MonthlyReportCard() {
             disabled={running}
           >
             {running ? (
-              <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />產生中</>
+              <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Pro 深度分析中{elapsed > 0 ? ` (${elapsed}s)` : ''}</>
             ) : snapshot ? (
               <><RefreshCw className="h-3.5 w-3.5 mr-1.5" />重新產生</>
             ) : (
@@ -108,6 +110,11 @@ export function MonthlyReportCard() {
       </CardHeader>
       <CardContent>
         {error && <p className="text-xs text-destructive mb-3">{error}</p>}
+        {running && (
+          <p className="text-xs text-muted-foreground mb-3">
+            Gemini 2.5 Pro 正在綜合月度問卷資料，預計 10–30 秒。
+          </p>
+        )}
         {loading ? (
           <p className="text-xs text-muted-foreground text-center py-6">載入中...</p>
         ) : !snapshot ? (

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Sparkles, Loader2, RefreshCw, GitCompare, MessagesSquare, ClipboardCheck } from 'lucide-react'
 import type { TopicAlignmentSnapshot } from '@/lib/topic-alignment-store'
+import { useElapsed } from '@/lib/useElapsed'
 
 export function TopicAlignmentCard() {
   const [snapshot, setSnapshot] = useState<TopicAlignmentSnapshot | null>(null)
@@ -13,6 +14,7 @@ export function TopicAlignmentCard() {
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [usedMock, setUsedMock] = useState(false)
+  const elapsed = useElapsed(running)
 
   useEffect(() => {
     fetch('/api/insights/topic-alignment')
@@ -65,7 +67,7 @@ export function TopicAlignmentCard() {
           disabled={running}
         >
           {running ? (
-            <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />分析中</>
+            <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Pro 深度分析中{elapsed > 0 ? ` (${elapsed}s)` : ''}</>
           ) : snapshot ? (
             <><RefreshCw className="h-3.5 w-3.5 mr-1.5" />重新分析</>
           ) : (
@@ -75,6 +77,11 @@ export function TopicAlignmentCard() {
       </CardHeader>
       <CardContent>
         {error && <p className="text-xs text-destructive mb-3">{error}</p>}
+        {running && (
+          <p className="text-xs text-muted-foreground mb-3">
+            Gemini 2.5 Pro 正在比對問卷議題與社群討論，預計 10–30 秒。
+          </p>
+        )}
         {usedMock && <p className="text-[11px] text-amber-600 mb-3">⚠ 社群尚未抓取真實資料，目前使用範例資料對比</p>}
         {loading ? (
           <p className="text-xs text-muted-foreground text-center py-6">載入中...</p>

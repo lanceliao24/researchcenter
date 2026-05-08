@@ -15,6 +15,7 @@ import {
 import { Loader2, Sparkles, Trash2, UserRound, Quote, FileText, RefreshCw, MessageCircle, Send, RotateCcw, User, Users, X, CheckSquare, Square, ImagePlus, Scale, ClipboardList } from 'lucide-react'
 import type { ABTestResponse, ABTestSummary, Document, Persona, PersonaChatMessage, PersonaCategory, PersonaSurveyAnswer, PersonaSurveyFillRun, PersonaSurveyQuestionSummary, PersonaSurveyResponse, SurveyQuestion, SurveyQuestionType } from '@/types'
 import { PERSONA_CATEGORIES } from '@/types'
+import { useElapsed } from '@/lib/useElapsed'
 
 interface GroupMessage {
   type: 'user' | 'persona'
@@ -59,6 +60,7 @@ export default function PersonasPage() {
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [reindexing, setReindexing] = useState(false)
+  const generateElapsed = useElapsed(generating)
   const [preview, setPreview] = useState<PreviewInfo | null>(null)
   const [filePath, setFilePath] = useState('/Users/lanceliao/Downloads/rental.yml')
   const [limit, setLimit] = useState(10)
@@ -236,11 +238,16 @@ export default function PersonasPage() {
             </div>
             <Button onClick={handleGenerate} disabled={generating} size="sm">
               {generating ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Pro 產生中{generateElapsed > 0 ? ` (${generateElapsed}s)` : ''}
+                </>
               ) : (
-                <Sparkles className="h-4 w-4 mr-2" />
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  產生 Persona
+                </>
               )}
-              產生 Persona
             </Button>
             {personas.length > 0 && (
               <Button
@@ -259,6 +266,12 @@ export default function PersonasPage() {
               </Button>
             )}
           </div>
+
+          {generating && (
+            <p className="text-xs text-muted-foreground">
+              Gemini 2.5 Pro 正在從訪談逐字稿萃取 persona，每位 ~15-25 秒（{limit} 位約需 {Math.ceil(limit * 20 / 60)} 分鐘）
+            </p>
+          )}
 
           {preview?.available && (
             <div className="grid grid-cols-3 gap-4 text-sm">
