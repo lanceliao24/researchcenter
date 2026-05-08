@@ -22,8 +22,28 @@ export async function generateEmbedding(text: string): Promise<number[]> {
   return embedWithFallback(text)
 }
 
+async function batchEmbedWithFallback(texts: string[]): Promise<number[][]> {
+  let lastErr: unknown
+  for (const modelName of EMBEDDING_MODELS) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName })
+      const result = await model.batchEmbedContents({
+        requests: texts.map(text => ({
+          content: { role: 'user', parts: [{ text }] },
+        })),
+      })
+      return result.embeddings.map(e => e.values)
+    } catch (err) {
+      lastErr = err
+    }
+  }
+  throw lastErr
+}
+
 export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
-  return Promise.all(texts.map(t => embedWithFallback(t)))
+  if (texts.length === 0) return []
+  if (texts.length === 1) return [await embedWithFallback(texts[0])]
+  return batchEmbedWithFallback(texts)
 }
 
 const CHAT_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest']

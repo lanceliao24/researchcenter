@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const sourceFile = sourceFileName
+  const sourceFile = path.resolve(inputPath)
   const created: Persona[] = []
   const errors: { speaker: string; error: string }[] = []
 

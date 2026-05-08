@@ -1,4 +1,6 @@
 import fs from 'fs'
+import path from 'path'
+import os from 'os'
 import { upsertChunks, deleteBySource, type VectorRecordInput } from './local-semantic-retriever'
 import { parseTranscript, groupBySpeaker } from '@/lib/transcript-parser'
 import { getPersona, getPersonas } from '@/lib/persona-store'
@@ -6,6 +8,23 @@ import type { Persona } from '@/types'
 
 export const PERSONA_QUOTE_MIN_CHARS = 15
 export const PERSONA_QUOTE_MAX_CHARS = 500
+
+const TRANSCRIPT_FALLBACK_DIRS = [
+  path.join(os.homedir(), 'Downloads'),
+  path.join(os.homedir(), 'Documents'),
+  process.cwd(),
+]
+
+function resolveTranscriptPath(rawPath: string): string | null {
+  if (!rawPath) return null
+  if (path.isAbsolute(rawPath) && fs.existsSync(rawPath)) return rawPath
+  const base = path.basename(rawPath)
+  for (const dir of TRANSCRIPT_FALLBACK_DIRS) {
+    const candidate = path.join(dir, base)
+    if (fs.existsSync(candidate)) return candidate
+  }
+  return null
+}
 
 export interface PersonaIndexResult {
   personaId: number
@@ -42,13 +61,14 @@ function buildChunks(utterances: string[]): string[] {
 }
 
 export async function indexPersonaQuotes(persona: Persona): Promise<PersonaIndexResult> {
-  const filePath = persona.source?.file
-  if (!filePath || !fs.existsSync(filePath)) {
+  const rawPath = persona.source?.file
+  const filePath = resolveTranscriptPath(rawPath ?? '')
+  if (!filePath) {
     return {
       personaId: persona.id,
       speaker: persona.source?.speaker ?? '',
       indexed: 0,
-      skipped: 'source transcript not accessible',
+      skipped: `source transcript not found (looked for "${rawPath}" in ${TRANSCRIPT_FALLBACK_DIRS.join(', ')})`,
     }
   }
 
