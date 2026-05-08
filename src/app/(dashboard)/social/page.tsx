@@ -106,13 +106,41 @@ export default function SocialPage() {
   async function handleAddKeyword() {
     const kw = newKeyword.trim()
     if (!kw) return
-    await fetch('/api/social/keywords', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keyword: kw }),
-    })
-    setNewKeyword('')
-    await loadKeywords()
+    setFetching(true)
+    setFetchMsg(null)
+    try {
+      const addRes = await fetch('/api/social/keywords', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword: kw }),
+      })
+      if (!addRes.ok) {
+        const err = await addRes.json().catch(() => ({}))
+        setFetchMsg(err.error || '新增關鍵字失敗')
+        return
+      }
+      setNewKeyword('')
+      await loadKeywords()
+
+      setFetchMsg(`已新增「${kw}」，立即抓取中...`)
+      const fetchRes = await fetch('/api/social/fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keywords: [kw] }),
+      })
+      const data = await fetchRes.json()
+      if (!fetchRes.ok) {
+        setFetchMsg(`已新增「${kw}」，但抓取失敗：${data.error || ''}`)
+      } else {
+        setFetchMsg(`已新增「${kw}」，抓到 ${data.inserted ?? 0} 篇貼文`)
+        await loadPosts()
+      }
+      if (data.quota) setQuota(data.quota)
+    } catch (err) {
+      setFetchMsg(`失敗：${(err as Error).message}`)
+    } finally {
+      setFetching(false)
+    }
   }
 
   async function handleRemoveKeyword(id: number) {
@@ -328,11 +356,19 @@ export default function SocialPage() {
             <Input
               value={newKeyword}
               onChange={(e) => setNewKeyword(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddKeyword()}
-              placeholder="新增關鍵字..."
-              className="h-7 w-36 text-xs"
+              onKeyDown={(e) => e.key === 'Enter' && !fetching && handleAddKeyword()}
+              placeholder="新增關鍵字 (加完自動抓)"
+              className="h-7 w-44 text-xs"
+              disabled={fetching}
             />
-            <Button onClick={handleAddKeyword} size="sm" variant="ghost" className="h-7 px-2">
+            <Button
+              onClick={handleAddKeyword}
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2"
+              disabled={fetching || !newKeyword.trim()}
+              title="新增後立即抓取一次（耗 1 個 Firecrawl 配額）"
+            >
               <Plus className="h-3 w-3" />
             </Button>
           </div>

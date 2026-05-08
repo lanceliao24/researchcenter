@@ -15,6 +15,7 @@ const platformMap: Record<string, string> = {
   'threads.com': 'Threads',
   'threads.net': 'Threads',
   'mobile01.com': 'Mobile01',
+  'instagram.com': 'Instagram',
   'facebook.com': 'Facebook',
   'youtube.com': 'YouTube',
 }
@@ -48,6 +49,16 @@ function buildQuery(keyword: string): string {
   return `${brandClause} (site:dcard.tw OR site:ptt.cc OR site:pttweb.cc OR site:mobile01.com OR site:threads.com OR site:threads.net)`
 }
 
+const RECENT_MONTHS = 6
+const RECENT_MS = RECENT_MONTHS * 30 * 24 * 60 * 60 * 1000
+
+function getRecentDateRangeTbs(): string {
+  const min = new Date(Date.now() - RECENT_MS)
+  const max = new Date()
+  const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`
+  return `cdr:1,cd_min:${fmt(min)},cd_max:${fmt(max)}`
+}
+
 async function firecrawlSearch(keyword: string): Promise<FirecrawlItem[]> {
   const res = await fetch('https://api.firecrawl.dev/v1/search', {
     method: 'POST',
@@ -60,19 +71,19 @@ async function firecrawlSearch(keyword: string): Promise<FirecrawlItem[]> {
       limit: 10,
       country: 'tw',
       lang: 'zh-TW',
-      tbs: 'qdr:y',
+      tbs: getRecentDateRangeTbs(),
     }),
   })
   const data = await res.json()
   return data?.data?.web || data?.data || []
 }
 
-const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000
-function isWithinOneYear(iso: string | null): boolean {
+function isRecent(iso: string | null): boolean {
+  // 沒 publishedDate 時信任 Google `cdr:1, 6mo` filter（已收緊到 6 個月）
   if (!iso) return true
   const t = new Date(iso).getTime()
   if (Number.isNaN(t)) return true
-  return Date.now() - t < ONE_YEAR_MS
+  return Date.now() - t < RECENT_MS
 }
 
 export async function GET() {
@@ -107,7 +118,7 @@ export async function POST(request: NextRequest) {
 
     if (!kws.length) return NextResponse.json({ inserted: 0, message: 'No active keywords' })
 
-    const pruned = pruneOlderThan(365)
+    const pruned = pruneOlderThan(RECENT_MONTHS * 30)
 
     const toFetch = kws.slice(0, quotaStatus.remaining)
     let totalInserted = 0
@@ -130,7 +141,7 @@ export async function POST(request: NextRequest) {
             fetched_at: now,
             published_at: r.publishedDate || extractPttDate(r.url!) || null,
           }))
-          .filter(p => isWithinOneYear(p.published_at))
+          .filter(p => isRecent(p.published_at))
 
         totalInserted += upsertPosts(posts)
       } catch (err) {
