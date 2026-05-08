@@ -12,7 +12,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select'
-import { Search, ExternalLink, RefreshCw, Plus, X, Loader2, ChevronLeft, ChevronRight, BarChart3, AlertTriangle } from 'lucide-react'
+import { Search, ExternalLink, RefreshCw, Plus, X, Loader2, ChevronLeft, ChevronRight, BarChart3, AlertTriangle, Check } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts'
 import { mockSocialPosts } from '@/lib/mock-data'
 import type { SocialPost, Keyword } from '@/types'
@@ -416,11 +416,33 @@ export default function SocialPage() {
       </div>
 
       {/* Stats bar */}
-      <div className="flex gap-4 text-sm text-muted-foreground">
-        <span>共 <strong className="text-foreground">{sentimentStats.total}</strong> 篇</span>
-        <span className="text-green-600">{sentimentStats.pos} 正面</span>
-        <span className="text-muted-foreground">{sentimentStats.neu} 中性</span>
-        <span className="text-red-600">{sentimentStats.neg} 負面</span>
+      <div className="flex gap-2 text-sm items-center flex-wrap">
+        <span className="text-muted-foreground mr-1">
+          共 <strong className="text-foreground">{sentimentStats.total}</strong> 篇 ・ 點擊篩選：
+        </span>
+        {([
+          { key: 'positive', label: '正面', count: sentimentStats.pos, base: 'border-green-500 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/40', active: 'bg-green-600 border-green-600 text-white shadow-sm' },
+          { key: 'neutral', label: '中性', count: sentimentStats.neu, base: 'border-slate-400 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900/40', active: 'bg-slate-600 border-slate-600 text-white shadow-sm' },
+          { key: 'negative', label: '負面', count: sentimentStats.neg, base: 'border-red-500 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40', active: 'bg-red-600 border-red-600 text-white shadow-sm' },
+        ] as const).map(({ key, label, count, base, active }) => {
+          const isActive = sentimentFilter === key
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setSentimentFilter(isActive ? 'all' : key)}
+              aria-pressed={isActive}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-sm font-medium cursor-pointer transition-all ${
+                isActive ? active : base
+              }`}
+              title={isActive ? '點擊取消篩選' : `只看${label}`}
+            >
+              {isActive && <Check className="h-3 w-3" />}
+              <span className="tabular-nums">{count}</span>
+              <span>{label}</span>
+            </button>
+          )
+        })}
       </div>
 
       {/* Posts */}

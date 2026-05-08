@@ -4,6 +4,7 @@ import { FileUploader } from '@/components/upload/FileUploader'
 import { SurveyList } from './survey-list'
 import { MonthlySnapshot } from './monthly-snapshot'
 import { MonthlyTrend } from './monthly-trend'
+import { IssueTrendsCard } from './issue-trends'
 import { TopicAlignmentCard } from '@/components/insights/topic-alignment'
 import { MonthlyReportCard } from '@/components/insights/monthly-report'
 import { CompetitorAlignmentCard } from '@/components/insights/competitor-alignment'
@@ -66,6 +67,8 @@ export default async function SurveysPage() {
       {monthlyMonths.length > 0 && <MonthlyReportCard />}
 
       {monthlyMonths.length > 0 && <MonthlyTrend />}
+
+      <IssueTrendsCard />
 
       {monthlyMonths.length > 0 && <TopicAlignmentCard />}
 
