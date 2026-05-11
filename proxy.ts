@@ -7,6 +7,7 @@ const PUBLIC_PATHS = [
   '/api/auth/google/callback',
   '/api/auth/logout',
   '/api/social/cron',
+  '/api/health',
 ]
 
 const PUBLIC_PREFIXES = ['/_next/', '/favicon']
