@@ -16,14 +16,18 @@ import { listMetricsByMonth, listMonths } from '@/lib/monthly-survey-store'
 import {
   readIssueTrends,
   writeIssueTrends,
+  detectServiceFromTitle,
+  getServiceLabel,
   type CanonicalIssue,
   type IssueKind,
   type IssueOccurrence,
   type IssueTrend,
   type IssueTrendsSnapshot,
+  type ServiceTrends,
 } from '@/lib/issue-trends-store'
 
 interface RawIssue {
+  service: string
   period: string
   periodKind: 'quarter' | 'month'
   source: string
@@ -52,8 +56,10 @@ function collectRawIssues(): RawIssue[] {
     const quarter = detectQuarterFromTitle(doc.title)
     const period = quarter ?? doc.title
     const periodKind: 'quarter' | 'month' = quarter ? 'quarter' : 'month'
+    const service = detectServiceFromTitle(doc.title)
     for (const theme of summary.themes) {
       out.push({
+        service,
         period,
         periodKind,
         source: doc.title,
@@ -66,7 +72,7 @@ function collectRawIssues(): RawIssue[] {
     }
   }
 
-  // 2. Monthly metrics themes
+  // 2. Monthly metrics themes (already tagged with service)
   const months = listMonths()
   for (const month of months) {
     const metricsForMonth = listMetricsByMonth(month)
@@ -75,6 +81,7 @@ function collectRawIssues(): RawIssue[] {
       if (!themes) continue
       for (const t of themes.complaint ?? []) {
         out.push({
+          service: m.service,
           period: m.month,
           periodKind: 'month',
           source: `monthly:${m.service}`,
@@ -86,6 +93,7 @@ function collectRawIssues(): RawIssue[] {
       }
       for (const t of themes.suggestion ?? []) {
         out.push({
+          service: m.service,
           period: m.month,
           periodKind: 'month',
           source: `monthly:${m.service}`,
@@ -101,13 +109,25 @@ function collectRawIssues(): RawIssue[] {
   return out
 }
 
-function uniquePeriods(rawIssues: RawIssue[]): string[] {
-  return Array.from(new Set(rawIssues.map(r => r.period))).sort()
+function groupByService(rawIssues: RawIssue[]): Map<string, RawIssue[]> {
+  const groups = new Map<string, RawIssue[]>()
+  for (const r of rawIssues) {
+    const arr = groups.get(r.service) ?? []
+    arr.push(r)
+    groups.set(r.service, arr)
+  }
+  return groups
+}
+
+function uniquePeriodsOf(issues: RawIssue[]): string[] {
+  return Array.from(new Set(issues.map(r => r.period))).sort()
 }
 
 const SYSTEM_PROMPT = `你是研究分析助手，擅長把跨問卷的議題對齊成統一座標系，看出時間趨勢。
 
-任務：使用者會給你一份「raw_issues」陣列，每筆代表某時段（季度或月份）某問卷抽出的一個議題。請把它們**合併同義** 成 5-12 個 canonical 議題，並判斷每個議題的時間趨勢。
+**重要：本次處理的所有 raw_issues 都來自同一個服務別**（例：計程車）。請只對這一個服務做議題對齊，不要試著跨服務泛化。
+
+任務：把 raw_issues 合併同義 成 3-12 個 canonical 議題，並判斷每個議題的時間趨勢。
 
 **嚴格輸出合法 JSON，不可包含 markdown code fence 或其他文字。**
 
@@ -118,9 +138,9 @@ const SYSTEM_PROMPT = `你是研究分析助手，擅長把跨問卷的議題對
       "title": "議題名稱（精簡，5-12 字）",
       "description": "為什麼這幾個 raw 議題屬於同一個（30-60 字）",
       "kind": "complaint" | "suggestion" | "mixed",
-      "occurrence_indexes": [0, 3, 7],   // 在 raw_issues 陣列中的 0-based index
+      "occurrence_indexes": [0, 3, 7],
       "trend": "rising" | "falling" | "stable" | "single",
-      "rationale": "趨勢判斷依據（20-50 字，只要時間軸 ≥ 2 個 period 就要明確說 up/down/stable）"
+      "rationale": "趨勢判斷依據（20-50 字）"
     }
   ],
   "summary": "整體 narrative：哪幾個議題長期惡化、哪些改善、哪些只是 single shot（80-150 字）"
@@ -129,11 +149,11 @@ const SYSTEM_PROMPT = `你是研究分析助手，擅長把跨問卷的議題對
 判斷規則：
 - 同義議題：例「上下車地址輸入問題」+「地址輸入搜尋邏輯」+「定位輸入錯誤」→ 同一個 canonical「地址輸入體驗」
 - trend = "single" 當該議題只在 1 個 period 出現
-- trend = "rising" / "falling" 當該議題 count 或 frequency 在時序上明顯上升 / 下降（≥ 30% 變化）
+- trend = "rising" / "falling" 當 count 或 frequency 在時序上明顯上升 / 下降（≥ 30%）
 - trend = "stable" 當變化 < 30% 或方向不明
 - raw_issues 已標好 period（如 2025-Q1 / 2026-03），請忠實對齊
 - 不要創造 raw_issues 沒有的議題
-- occurrence_indexes 必須是 raw_issues 中真實存在的 index
+- occurrence_indexes 必須是 raw_issues 中真實存在的 0-based index
 - 繁體中文`
 
 interface AICanonicalIssue {
@@ -197,44 +217,14 @@ function sanitizeIssue(
   }
 }
 
-export async function GET() {
-  return NextResponse.json({ snapshot: readIssueTrends() })
-}
-
-export async function POST(req: NextRequest) {
-  const auth = await requireEditor(req)
-  if (auth instanceof NextResponse) return auth
-
-  if (!isLocalMode()) {
-    return NextResponse.json({ error: 'production not implemented' }, { status: 501 })
-  }
-
-  const rawIssues = collectRawIssues()
-  if (rawIssues.length === 0) {
-    return NextResponse.json(
-      { error: '沒有可用議題：請先對問卷跑「主題摘要」或匯入月度問卷' },
-      { status: 400 },
-    )
-  }
-
-  const periods = uniquePeriods(rawIssues)
-  if (periods.length < 1) {
-    return NextResponse.json({ error: '時段不足' }, { status: 400 })
-  }
-
-  const q = checkBoth(auth, 'gemini_chat_pro')
-  if (!q.ok) {
-    return NextResponse.json(
-      {
-        error: quotaDeniedMessage(q.reason),
-        quota: getQuotaStatus('gemini_chat_pro'),
-        userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat_pro'),
-      },
-      { status: 429 },
-    )
-  }
-
-  const userMsg = `raw_issues（共 ${rawIssues.length} 筆，跨 ${periods.length} 個時段：${periods.join(', ')}）：
+async function canonicalizeService(
+  service: string,
+  rawIssues: RawIssue[],
+): Promise<ServiceTrends> {
+  const periods = uniquePeriodsOf(rawIssues)
+  const userMsg = `服務別：${getServiceLabel(service)}（service code：${service}）
+時段：${periods.join(', ')}
+raw_issues（共 ${rawIssues.length} 筆）：
 
 ${wrapUntrusted(
   rawIssues
@@ -252,39 +242,119 @@ ${wrapUntrusted(
 
 請輸出 canonical issues + trend JSON。`
 
-  let parsed
-  try {
-    const reply = await chatPro(SYSTEM_PROMPT, userMsg)
-    parsed = parseAIResponse(reply)
-    incrementBoth(auth, 'gemini_chat_pro')
-  } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 })
-  }
-
+  const reply = await chatPro(SYSTEM_PROMPT, userMsg)
+  const parsed = parseAIResponse(reply)
   const canonical: CanonicalIssue[] = []
   for (const ai of parsed.issues) {
     const issue = sanitizeIssue(ai, rawIssues)
     if (issue) canonical.push(issue)
   }
-
-  if (canonical.length === 0) {
-    return NextResponse.json({ error: 'AI 回傳格式無法解析' }, { status: 500 })
+  return {
+    service,
+    serviceLabel: getServiceLabel(service),
+    periods,
+    rawCount: rawIssues.length,
+    issues: canonical,
+    summary: parsed.summary,
   }
+}
+
+export async function GET() {
+  return NextResponse.json({ snapshot: readIssueTrends() })
+}
+
+export async function POST(req: NextRequest) {
+  const auth = await requireEditor(req)
+  if (auth instanceof NextResponse) return auth
+
+  if (!isLocalMode()) {
+    return NextResponse.json({ error: 'production not implemented' }, { status: 501 })
+  }
+
+  const body = await req.json().catch(() => ({}))
+  const onlyService = typeof body.service === 'string' ? body.service : null
+
+  const rawIssues = collectRawIssues()
+  if (rawIssues.length === 0) {
+    return NextResponse.json(
+      { error: '沒有可用議題：請先對問卷跑「主題摘要」或匯入月度問卷' },
+      { status: 400 },
+    )
+  }
+
+  const allGroups = groupByService(rawIssues)
+  const serviceList = onlyService
+    ? [onlyService].filter(s => allGroups.has(s))
+    : Array.from(allGroups.keys())
+
+  if (serviceList.length === 0) {
+    return NextResponse.json({ error: '沒有對應服務的議題資料' }, { status: 400 })
+  }
+
+  // Quota: each service consumes 1 Pro call. Pre-check total before starting.
+  const proStatus = getQuotaStatus('gemini_chat_pro')
+  const userPro = getUserQuotaStatus(auth.email, auth.role, 'gemini_chat_pro')
+  const need = serviceList.length
+  if (proStatus.remaining < need || userPro.remaining < need) {
+    return NextResponse.json(
+      {
+        error: `Pro 配額不足：需要 ${need}（每服務 1 份），全站剩 ${proStatus.remaining}、個人剩 ${userPro.remaining}`,
+        quota: proStatus,
+        userQuota: userPro,
+      },
+      { status: 429 },
+    )
+  }
+
+  const q = checkBoth(auth, 'gemini_chat_pro')
+  if (!q.ok) {
+    return NextResponse.json(
+      { error: quotaDeniedMessage(q.reason), quota: proStatus, userQuota: userPro },
+      { status: 429 },
+    )
+  }
+
+  // Either start fresh OR merge into existing snapshot (when a single service is regenerated)
+  const existing = readIssueTrends()
+  const byService: ServiceTrends[] = onlyService && existing
+    ? existing.byService.filter(s => s.service !== onlyService)
+    : []
+
+  const errors: { service: string; error: string }[] = []
+  for (const service of serviceList) {
+    const issuesForService = allGroups.get(service) ?? []
+    if (issuesForService.length === 0) continue
+    try {
+      const result = await canonicalizeService(service, issuesForService)
+      incrementBoth(auth, 'gemini_chat_pro')
+      byService.push(result)
+    } catch (err) {
+      errors.push({ service, error: (err as Error).message })
+    }
+  }
+
+  if (byService.length === 0) {
+    return NextResponse.json(
+      { error: '所有服務的議題對齊都失敗', errors },
+      { status: 500 },
+    )
+  }
+
+  byService.sort((a, b) => b.rawCount - a.rawCount)
 
   const snapshot: IssueTrendsSnapshot = {
     generatedAt: new Date().toISOString(),
-    periods,
     totalRawThemes: rawIssues.length,
-    issues: canonical,
-    summary: parsed.summary,
+    byService,
   }
   writeIssueTrends(snapshot)
 
   logAudit(auth, 'survey.issue_trends', null, {
-    issues: canonical.length,
-    periods: periods.length,
+    services: serviceList.length,
+    issues: byService.reduce((s, st) => s + st.issues.length, 0),
     rawThemes: rawIssues.length,
+    errors: errors.length,
   })
 
-  return NextResponse.json({ snapshot })
+  return NextResponse.json({ snapshot, errors })
 }

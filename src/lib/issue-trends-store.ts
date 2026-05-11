@@ -24,12 +24,46 @@ export interface CanonicalIssue {
   rationale: string
 }
 
-export interface IssueTrendsSnapshot {
-  generatedAt: string
+export interface ServiceTrends {
+  service: string
+  serviceLabel: string
   periods: string[]
-  totalRawThemes: number
+  rawCount: number
   issues: CanonicalIssue[]
   summary: string
+}
+
+export interface IssueTrendsSnapshot {
+  generatedAt: string
+  totalRawThemes: number
+  byService: ServiceTrends[]
+}
+
+export const SERVICE_LABELS: Record<string, string> = {
+  taxi: '計程車',
+  rental: '租車',
+  scooter: '共享機車',
+  designated_driver: '代駕',
+  shuttle: '接送',
+  station_rental: '站點租車',
+  charging: '充電',
+  chauffeured_car: '包車',
+  other: '其他',
+}
+
+export function getServiceLabel(service: string): string {
+  return SERVICE_LABELS[service] ?? service
+}
+
+export function detectServiceFromTitle(title: string): string {
+  const lower = title.toLowerCase()
+  if (lower.includes('taxi') || /計程車/.test(title)) return 'taxi'
+  if (lower.includes('rental') || /租車/.test(title)) return 'rental'
+  if (lower.includes('scooter') || /機車|gogoro|wemo|goshare/i.test(title)) return 'scooter'
+  if (lower.includes('chauffeur') || /包車/.test(title)) return 'chauffeured_car'
+  if (lower.includes('shuttle') || /接送/.test(title)) return 'shuttle'
+  if (lower.includes('charging') || /充電/.test(title)) return 'charging'
+  return 'other'
 }
 
 const SNAPSHOT_PATH = storePath('issue-trends.json')
