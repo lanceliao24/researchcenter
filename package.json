@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "migrate-data": "tsx scripts/migrate-data.ts"
+    "migrate-data": "tsx scripts/migrate-data.ts",
+    "check:fast": "tsc --noEmit --incremental"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.0",
