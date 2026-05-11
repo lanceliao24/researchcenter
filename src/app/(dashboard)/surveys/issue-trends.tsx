@@ -175,7 +175,14 @@ export function IssueTrendsCard() {
   useEffect(() => {
     fetch('/api/surveys/issue-trends')
       .then(r => r.json())
-      .then(d => setSnapshot(d.snapshot ?? null))
+      .then(d => {
+        // Defensive: tolerate the old flat-schema snapshot by treating it as "no data"
+        if (d.snapshot && Array.isArray(d.snapshot.byService)) {
+          setSnapshot(d.snapshot)
+        } else {
+          setSnapshot(null)
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])

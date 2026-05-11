@@ -316,7 +316,7 @@ export async function POST(req: NextRequest) {
 
   // Either start fresh OR merge into existing snapshot (when a single service is regenerated)
   const existing = readIssueTrends()
-  const byService: ServiceTrends[] = onlyService && existing
+  const byService: ServiceTrends[] = onlyService && existing && Array.isArray(existing.byService)
     ? existing.byService.filter(s => s.service !== onlyService)
     : []
 
