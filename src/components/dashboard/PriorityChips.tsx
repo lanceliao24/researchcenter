@@ -60,14 +60,14 @@ export function PriorityChips({ issues }: { issues: PriorityIssue[] }) {
           全部 <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
-      <div className="space-y-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4">
         {ordered.map(g => (
           <div key={g.service}>
-            <div className="text-xs font-medium text-foreground mb-1.5">
+            <div className="text-xs font-medium text-foreground mb-2 pb-1.5 border-b border-border/60">
               {g.label}
               <span className="ml-1.5 text-muted-foreground font-normal">({g.items.length})</span>
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-col gap-1.5">
               {g.items.map((iss, i) => {
                 const TIcon = trendIcon[iss.trend]
                 const isRising = iss.trend === 'rising'
@@ -75,11 +75,11 @@ export function PriorityChips({ issues }: { issues: PriorityIssue[] }) {
                   <Link
                     key={i}
                     href="/surveys"
-                    className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-card hover:bg-accent text-foreground text-xs transition-colors"
+                    className="group inline-flex items-center gap-1.5 text-xs text-foreground hover:text-primary transition-colors"
                   >
-                    <span>{iss.title}</span>
+                    <span className="truncate">{iss.title}</span>
                     {isRising && (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded border border-rose-500/40 text-rose-600 dark:text-rose-400 text-[10px]">
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded border border-rose-500/40 text-rose-600 dark:text-rose-400 text-[10px] shrink-0">
                         <TIcon className="h-2.5 w-2.5" />
                         惡化中
                       </span>
