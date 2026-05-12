@@ -1,14 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isLocalMode } from '@/lib/local-mode'
-import { requireEditor } from '@/lib/auth'
+import { requireEditor, requireUser } from '@/lib/auth'
 import { logAudit } from '@/lib/audit-log'
 
 export async function GET(request: NextRequest) {
+  const auth = await requireUser(request)
+  if (auth instanceof NextResponse) return auth
+
   const type = request.nextUrl.searchParams.get('type')
 
   if (isLocalMode()) {
     const { getLocalDocuments } = await import('@/lib/local-store')
-    const docs = getLocalDocuments(type || undefined)
+    let docs = getLocalDocuments(type || undefined)
+    // Hide raw transcripts from viewers — editor-only sensitive data.
+    if (auth.role !== 'editor') {
+      docs = docs.filter(d => d.type !== 'transcript')
+    }
     return NextResponse.json({ documents: docs })
   }
 
@@ -16,6 +23,7 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient()
   let query = supabase.from('documents').select('*').order('created_at', { ascending: false })
   if (type) query = query.eq('type', type)
+  if (auth.role !== 'editor') query = query.neq('type', 'transcript')
   const { data } = await query
   return NextResponse.json({ documents: data || [] })
 }

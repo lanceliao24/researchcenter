@@ -16,7 +16,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar />
+      <Sidebar role={role} />
       <div className="flex flex-col min-h-screen md:pl-[232px]">
         <Header email={email} role={role} />
         <main className="flex-1 px-6 md:px-10 lg:px-14 py-6">

@@ -19,6 +19,8 @@ const MIME_BY_EXT: Record<string, string> = {
   '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 }
 
+const EDITOR_ONLY_PREFIXES = ['transcript/', 'transcript-text/']
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string[] }> },
@@ -30,7 +32,13 @@ export async function GET(
     return NextResponse.json({ error: 'Missing path' }, { status: 400 })
   }
 
-  const absolute = resolveRelativeFilePath(slug.join('/'))
+  const joined = slug.join('/')
+  // Transcripts are raw interview content — sensitive, editor-only.
+  if (EDITOR_ONLY_PREFIXES.some(p => joined.startsWith(p)) && auth.role !== 'editor') {
+    return NextResponse.json({ error: 'Forbidden: editor only' }, { status: 403 })
+  }
+
+  const absolute = resolveRelativeFilePath(joined)
   if (!absolute) {
     return NextResponse.json({ error: 'Invalid path' }, { status: 400 })
   }

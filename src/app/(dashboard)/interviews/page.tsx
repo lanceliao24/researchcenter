@@ -1,11 +1,18 @@
+import { redirect } from 'next/navigation'
 import { isLocalMode } from '@/lib/local-mode'
 import { mockDocuments } from '@/lib/mock-data'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { FileUploader } from '@/components/upload/FileUploader'
+import { getSessionFromCookies } from '@/lib/auth'
 import type { Document } from '@/types'
 
 export default async function InterviewsPage() {
+  // Raw interview transcripts are editor-only sensitive data.
+  const session = await getSessionFromCookies()
+  if (!session) redirect('/login')
+  if (session.role !== 'editor') redirect('/')
+
   let documents: Document[] = mockDocuments.filter(d => d.type === 'transcript')
 
   if (isLocalMode()) {

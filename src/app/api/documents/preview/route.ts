@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isLocalMode } from '@/lib/local-mode'
+import { requireUser } from '@/lib/auth'
 import Papa from 'papaparse'
 
 export async function GET(request: NextRequest) {
+  const auth = await requireUser(request)
+  if (auth instanceof NextResponse) return auth
+
   const docId = request.nextUrl.searchParams.get('id')
   if (!docId) {
     return NextResponse.json({ error: 'Missing id' }, { status: 400 })
@@ -18,6 +22,11 @@ export async function GET(request: NextRequest) {
 
   if (!doc || !doc.file_path) {
     return NextResponse.json({ error: 'Document not found' }, { status: 404 })
+  }
+
+  // Transcripts contain sensitive raw interview content — editor only.
+  if (doc.type === 'transcript' && auth.role !== 'editor') {
+    return NextResponse.json({ error: 'Forbidden: editor only' }, { status: 403 })
   }
 
   try {

@@ -16,7 +16,18 @@ import {
   History,
 } from 'lucide-react'
 
-const navSections: { title: string; items: { href: string; label: string; icon: React.ComponentType<{ className?: string }> }[] }[] = [
+interface NavItem {
+  href: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  editorOnly?: boolean
+}
+interface NavSection {
+  title: string
+  items: NavItem[]
+}
+
+const navSections: NavSection[] = [
   {
     title: '總覽',
     items: [{ href: '/', label: '儀表板', icon: LayoutDashboard }],
@@ -25,7 +36,7 @@ const navSections: { title: string; items: { href: string; label: string; icon: 
     title: '資料來源',
     items: [
       { href: '/social', label: '社群監測', icon: Radio },
-      { href: '/interviews', label: '訪談資料', icon: Mic },
+      { href: '/interviews', label: '訪談資料', icon: Mic, editorOnly: true },
       { href: '/surveys', label: '問卷分析', icon: ClipboardList },
       { href: '/reports', label: '報告中心', icon: FileText },
     ],
@@ -41,14 +52,21 @@ const navSections: { title: string; items: { href: string; label: string; icon: 
   {
     title: '系統',
     items: [
-      { href: '/admin/audit-log', label: 'Audit Log', icon: History },
+      { href: '/admin/audit-log', label: 'Audit Log', icon: History, editorOnly: true },
       { href: '/settings', label: '設定', icon: Settings },
     ],
   },
 ]
 
-export function Sidebar() {
+export function Sidebar({ role }: { role?: string }) {
   const pathname = usePathname()
+  const isEditor = role === 'editor'
+  const sections = navSections
+    .map(s => ({
+      ...s,
+      items: s.items.filter(item => !item.editorOnly || isEditor),
+    }))
+    .filter(s => s.items.length > 0)
 
   return (
     <aside className="hidden md:flex fixed inset-y-0 left-0 z-30 w-[232px] flex-col border-r border-border bg-sidebar">
@@ -67,8 +85,8 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-5">
-        {navSections.map((section, si) => (
-          <div key={section.title} className={cn('mb-5', si === navSections.length - 1 && 'mb-0')}>
+        {sections.map((section, si) => (
+          <div key={section.title} className={cn('mb-5', si === sections.length - 1 && 'mb-0')}>
             <div className="px-3 mb-2 text-[10px] font-semibold tracking-[0.15em] uppercase text-muted-foreground/70">
               {section.title}
             </div>
