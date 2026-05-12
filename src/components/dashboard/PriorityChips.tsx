@@ -50,7 +50,7 @@ export function PriorityChips({ issues }: { issues: PriorityIssue[] }) {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-1.5">
           <AlertOctagon className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-          <span className="text-sm font-semibold">本期最該處理</span>
+          <span className="text-base font-semibold">本期最該處理</span>
           <span className="text-xs text-muted-foreground">（{issues.length} 個 prioritize 議題）</span>
         </div>
         <Link
@@ -63,7 +63,7 @@ export function PriorityChips({ issues }: { issues: PriorityIssue[] }) {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4">
         {ordered.map(g => (
           <div key={g.service}>
-            <div className="text-xs font-medium text-foreground mb-2 pb-1.5 border-b border-border/60">
+            <div className="text-sm font-medium text-foreground mb-2 pb-1.5 border-b border-border/60">
               {g.label}
               <span className="ml-1.5 text-muted-foreground font-normal">({g.items.length})</span>
             </div>

@@ -43,7 +43,7 @@ function ServiceHealthCard({ data }: { data: ServiceHealth }) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <Icon className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-semibold">{data.label}</span>
+              <span className="text-base font-semibold">{data.label}</span>
             </div>
             <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
@@ -51,7 +51,7 @@ function ServiceHealthCard({ data }: { data: ServiceHealth }) {
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-md bg-muted/40 px-2 py-1.5">
               <div className="flex items-center justify-between gap-1">
-                <span className="text-xs text-muted-foreground">NPS</span>
+                <span className="text-sm text-muted-foreground">NPS</span>
                 <Badge variant={status.variant} className="text-[10px] py-0 px-1 leading-tight">
                   {status.label}
                 </Badge>
@@ -61,7 +61,7 @@ function ServiceHealthCard({ data }: { data: ServiceHealth }) {
               </div>
             </div>
             <div className="rounded-md bg-muted/40 px-2 py-1.5">
-              <div className="text-xs text-muted-foreground">滿意度</div>
+              <div className="text-sm text-muted-foreground">滿意度</div>
               <div className="text-lg font-bold tabular-nums">
                 {data.satisfied_pct.toFixed(0)}<span className="text-xs">%</span>
               </div>
@@ -107,7 +107,7 @@ export function ServiceHealthGrid({ services }: { services: ServiceHealth[] }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-muted-foreground tracking-wider uppercase">
+        <h2 className="text-base font-semibold text-foreground">
           跨服務健康度
         </h2>
         <span className="text-xs text-muted-foreground">點卡片查看 issue trends</span>
@@ -126,7 +126,7 @@ export function ServiceHealthGrid({ services }: { services: ServiceHealth[] }) {
           <div className="grid grid-cols-3 gap-4 mt-2">
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground">總體 NPS</span>
+                <span className="text-sm text-muted-foreground">總體 NPS</span>
                 <Badge variant={aggStatus.variant} className="text-[10px] py-0 px-1 leading-tight">
                   {aggStatus.label}
                 </Badge>
@@ -136,13 +136,13 @@ export function ServiceHealthGrid({ services }: { services: ServiceHealth[] }) {
               </div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">總體滿意度</div>
+              <div className="text-sm text-muted-foreground">總體滿意度</div>
               <div className="text-2xl font-bold tabular-nums">
                 {agg.satisfied.toFixed(1)}<span className="text-sm">%</span>
               </div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Prioritize 議題</div>
+              <div className="text-sm text-muted-foreground">Prioritize 議題</div>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-2xl font-bold tabular-nums">{agg.prioritize}</span>
                 {agg.prioritize > 0 && (
