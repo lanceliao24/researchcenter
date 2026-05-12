@@ -51,37 +51,37 @@ function ServiceHealthCard({ data }: { data: ServiceHealth }) {
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-md bg-muted/40 px-2 py-1.5">
               <div className="flex items-center justify-between gap-1">
-                <span className="text-[10px] text-muted-foreground">NPS</span>
-                <Badge variant={status.variant} className="text-[9px] py-0 px-1 leading-tight">
+                <span className="text-xs text-muted-foreground">NPS</span>
+                <Badge variant={status.variant} className="text-[10px] py-0 px-1 leading-tight">
                   {status.label}
                 </Badge>
               </div>
               <div className="text-lg font-bold tabular-nums">
-                {data.nps >= 0 ? '+' : ''}{data.nps.toFixed(1)}
+                {data.nps.toFixed(1)}
               </div>
             </div>
             <div className="rounded-md bg-muted/40 px-2 py-1.5">
-              <div className="text-[10px] text-muted-foreground">滿意度</div>
+              <div className="text-xs text-muted-foreground">滿意度</div>
               <div className="text-lg font-bold tabular-nums">
                 {data.satisfied_pct.toFixed(0)}<span className="text-xs">%</span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span className="tabular-nums">{data.responses.toLocaleString()} 回覆</span>
             <span>{data.month}</span>
           </div>
 
           {data.prioritizeCount > 0 ? (
-            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground px-1">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground px-1">
               <Badge variant="outline" className="text-[10px] py-0">
                 {data.prioritizeCount} prioritize
               </Badge>
               {data.risingCount > 0 && <span>· {data.risingCount} 上升</span>}
             </div>
           ) : (
-            <div className="text-[11px] text-muted-foreground px-1">無 prioritize 議題</div>
+            <div className="text-xs text-muted-foreground px-1">無 prioritize 議題</div>
           )}
         </CardContent>
       </Card>
@@ -110,39 +110,39 @@ export function ServiceHealthGrid({ services }: { services: ServiceHealth[] }) {
         <h2 className="text-sm font-semibold text-muted-foreground tracking-wider uppercase">
           跨服務健康度
         </h2>
-        <span className="text-[11px] text-muted-foreground">點卡片查看 issue trends</span>
+        <span className="text-xs text-muted-foreground">點卡片查看 issue trends</span>
       </div>
 
       {agg && aggStatus && (
         <div className="rounded-lg border bg-card px-4 py-3">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">
+            <div className="text-xs font-semibold tracking-wider uppercase text-muted-foreground">
               總體（4 服務合計，按回覆數加權）
             </div>
-            <div className="text-[11px] text-muted-foreground tabular-nums">
+            <div className="text-xs text-muted-foreground tabular-nums">
               {agg.totalResponses.toLocaleString()} 回覆
             </div>
           </div>
           <div className="grid grid-cols-3 gap-4 mt-2">
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-muted-foreground">總體 NPS</span>
-                <Badge variant={aggStatus.variant} className="text-[9px] py-0 px-1 leading-tight">
+                <span className="text-xs text-muted-foreground">總體 NPS</span>
+                <Badge variant={aggStatus.variant} className="text-[10px] py-0 px-1 leading-tight">
                   {aggStatus.label}
                 </Badge>
               </div>
               <div className="text-2xl font-bold tabular-nums">
-                {agg.nps >= 0 ? '+' : ''}{agg.nps.toFixed(1)}
+                {agg.nps.toFixed(1)}
               </div>
             </div>
             <div>
-              <div className="text-[10px] text-muted-foreground">總體滿意度</div>
+              <div className="text-xs text-muted-foreground">總體滿意度</div>
               <div className="text-2xl font-bold tabular-nums">
                 {agg.satisfied.toFixed(1)}<span className="text-sm">%</span>
               </div>
             </div>
             <div>
-              <div className="text-[10px] text-muted-foreground">Prioritize 議題</div>
+              <div className="text-xs text-muted-foreground">Prioritize 議題</div>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-2xl font-bold tabular-nums">{agg.prioritize}</span>
                 {agg.prioritize > 0 && (

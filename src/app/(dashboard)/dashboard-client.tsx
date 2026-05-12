@@ -177,7 +177,7 @@ export function DashboardClient({
                     }`}
                   >
                     <span>{label}</span>
-                    <span className={`tabular-nums text-[10px] ${isActive ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>
+                    <span className={`tabular-nums text-xs ${isActive ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>
                       {count}
                     </span>
                   </button>
@@ -199,9 +199,9 @@ export function DashboardClient({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium line-clamp-1">{post.title}</p>
                       <div className="flex gap-1.5 mt-1 items-center flex-wrap">
-                        <Badge variant="outline" className="text-[11px] py-0">{post.platform}</Badge>
+                        <Badge variant="outline" className="text-[10px] py-0">{post.platform}</Badge>
                         {post.sentiment && (
-                          <span className={`text-[11px] px-1.5 py-0 rounded ${sentimentColor[post.sentiment]}`}>
+                          <span className={`text-[10px] px-1.5 py-0 rounded ${sentimentColor[post.sentiment]}`}>
                             {sentimentLabel[post.sentiment]}
                           </span>
                         )}
@@ -399,11 +399,11 @@ function AlertRow({ alert }: { alert: PrAlert }) {
             <Badge variant="secondary" className="text-[10px] py-0">
               {alert.category}
             </Badge>
-            <span className="text-[10px] text-muted-foreground">{alert.source}</span>
+            <span className="text-xs text-muted-foreground">{alert.source}</span>
           </div>
           <p className="text-sm font-medium mt-1 line-clamp-1">{alert.title}</p>
           <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{alert.detail}</p>
-          <div className="text-[10px] text-muted-foreground/80 mt-1">
+          <div className="text-xs text-muted-foreground/80 mt-1">
             觸發規則：{alert.trigger}
           </div>
         </div>

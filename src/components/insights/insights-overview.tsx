@@ -71,7 +71,7 @@ export function InsightsOverview() {
             <Sparkles className="h-4 w-4 text-primary" />
             最新洞察總覽
           </CardTitle>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             整合月度問卷 + 社群討論，AI 摘要 Top 5
             {snapshot?.generatedAt && (
               <span className="ml-1.5">
