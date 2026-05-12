@@ -29,6 +29,7 @@ import { MonthlyOverviewCard, type MonthlyOverview } from '@/components/surveys/
 import { InsightsOverview } from '@/components/insights/insights-overview'
 import { TopicAlignmentCard } from '@/components/insights/topic-alignment'
 import { QuotaPanel } from '@/components/quota/QuotaPanel'
+import { PriorityChips, type PriorityIssue } from '@/components/dashboard/PriorityChips'
 
 type CloudCategory = '租車' | '計程車' | '共享機車' | 'LINE GO 總覽'
 type AnalysisShape = Record<CloudCategory, { positive: { word: string; count: number }[]; negative: { word: string; count: number }[] }>
@@ -58,6 +59,7 @@ interface Props {
   recentPosts: SocialPost[]
   postCategories: Record<number, SocialCategory>
   monthlyOverview: MonthlyOverview | null
+  priorityIssues?: PriorityIssue[]
 }
 
 export function DashboardClient({
@@ -66,6 +68,7 @@ export function DashboardClient({
   recentPosts,
   postCategories,
   monthlyOverview,
+  priorityIssues = [],
 }: Props) {
   const [categoryFilter, setCategoryFilter] = useState<SocialCategory | 'all'>('all')
   const [analysis, setAnalysis] = useState<AnalysisShape | null>(null)
@@ -138,6 +141,9 @@ export function DashboardClient({
 
       {/* Row 0: AI 搜尋框 */}
       <AISearchHero prompts={QUICK_ASK_PROMPTS} />
+
+      {/* Priority issues — pulled from latest issue-trends snapshot */}
+      {priorityIssues.length > 0 && <PriorityChips issues={priorityIssues} />}
 
       {/* Row 1: 左（月度問卷 → 洞察總覽）+ 右（聲量 → 公關預警） */}
       <div className="grid gap-6 lg:grid-cols-2">

@@ -9,6 +9,8 @@ import type { SocialPost } from '@/types'
 import { DashboardClient } from './dashboard-client'
 import { getMonthlyOverview, type MonthlyOverview } from '@/lib/monthly-survey-store'
 import { detectAlerts, filterRecentPosts } from '@/lib/pr-alerts'
+import { readIssueTrends } from '@/lib/issue-trends-store'
+import type { PriorityIssue } from '@/components/dashboard/PriorityChips'
 
 function classifyCategoryLocal(post: SocialPost): SocialCategory {
   const text = `${post.title ?? ''} ${post.description ?? ''} ${post.keyword ?? ''}`.toLowerCase()
@@ -53,6 +55,26 @@ export default async function DashboardPage() {
     volumeKPI = { ...mockVolumeKPI, alertsActive: alerts.length }
   }
 
+  // Extract prioritize issues from issue-trends snapshot (if exists).
+  const priorityIssues: PriorityIssue[] = []
+  const trends = readIssueTrends()
+  if (trends && Array.isArray(trends.byService)) {
+    for (const svc of trends.byService) {
+      for (const iss of svc.issues) {
+        if (iss.recommended_action === 'prioritize') {
+          priorityIssues.push({
+            service: svc.service,
+            serviceLabel: svc.serviceLabel,
+            title: iss.title,
+            trend: iss.trend,
+            impact: iss.impact ?? 'high',
+            confidence: iss.confidence ?? 'medium',
+          })
+        }
+      }
+    }
+  }
+
   return (
     <DashboardClient
       volumeKPI={volumeKPI}
@@ -60,6 +82,7 @@ export default async function DashboardPage() {
       recentPosts={recentPosts}
       postCategories={postCategories}
       monthlyOverview={monthlyOverview}
+      priorityIssues={priorityIssues}
     />
   )
 }
