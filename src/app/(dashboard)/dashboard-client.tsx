@@ -69,15 +69,12 @@ export function DashboardClient({
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">總覽</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          整合社群聲量、問卷回覆與公關事件，AI 自動產出洞察
+      <div className="flex items-baseline gap-3 flex-wrap">
+        <h1 className="text-xl font-bold">總覽</h1>
+        <p className="text-xs text-muted-foreground">
+          社群聲量 + 問卷 + 公關事件 · AI 自動洞察
         </p>
       </div>
-
-      {/* Row 0: AI 搜尋框 */}
-      <AISearchHero prompts={QUICK_ASK_PROMPTS} />
 
       {/* Priority issues — pulled from latest issue-trends snapshot */}
       {priorityIssues.length > 0 && <PriorityChips issues={priorityIssues} />}
@@ -156,6 +153,9 @@ export function DashboardClient({
           </div>
         </CardContent>
       </Card>
+
+      {/* AI 搜尋框 — 看完所有 dashboard 後想追問什麼 */}
+      <AISearchHero prompts={QUICK_ASK_PROMPTS} />
     </div>
   )
 }
@@ -173,38 +173,37 @@ function AISearchHero({ prompts }: { prompts: string[] }) {
   }
 
   return (
-    <div className="rounded-xl border bg-gradient-to-br from-primary/5 via-background to-background p-5">
-      <div className="flex items-center gap-3 mb-3">
-        <Sparkles className="h-4 w-4 text-primary" />
-        <span className="text-sm font-semibold">AI 跨來源問答</span>
-        <span className="text-xs text-muted-foreground">整合社群、訪談、問卷</span>
+    <div className="rounded-lg border bg-muted/20 p-3">
+      <div className="flex items-center gap-2 mb-2">
+        <Sparkles className="h-3.5 w-3.5 text-primary" />
+        <span className="text-xs font-semibold">想追問什麼？</span>
+        <span className="text-[11px] text-muted-foreground">AI 整合社群、訪談、問卷</span>
       </div>
       <form
         onSubmit={(e) => { e.preventDefault(); submit() }}
         className="flex items-center gap-2"
       >
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="想知道什麼？例如：本月計程車最常被抱怨的問題？"
-            className="pl-9 h-10 text-sm"
+            placeholder="例：本月計程車最常被抱怨的問題？"
+            className="pl-8 h-8 text-sm"
           />
         </div>
-        <Button type="submit" disabled={!q.trim()} size="default" className="h-10 px-4">
+        <Button type="submit" disabled={!q.trim()} size="sm" className="h-8 px-3 text-xs">
           提問
-          <ArrowRight className="h-3.5 w-3.5 ml-1" />
+          <ArrowRight className="h-3 w-3 ml-1" />
         </Button>
       </form>
-      <div className="flex items-center gap-2 flex-wrap mt-3">
-        <span className="text-[11px] text-muted-foreground">熱門：</span>
-        {prompts.slice(0, 4).map((p, i) => (
+      <div className="flex items-center gap-1.5 flex-wrap mt-2">
+        {prompts.slice(0, 3).map((p, i) => (
           <button
             key={i}
             type="button"
             onClick={() => submit(p)}
-            className="text-xs px-2.5 py-1 rounded-full border bg-background hover:bg-accent hover:border-primary/40 text-muted-foreground hover:text-foreground transition-colors"
+            className="text-[11px] px-2 py-0.5 rounded-full border bg-background hover:bg-accent hover:border-primary/40 text-muted-foreground hover:text-foreground transition-colors"
           >
             {p}
           </button>
