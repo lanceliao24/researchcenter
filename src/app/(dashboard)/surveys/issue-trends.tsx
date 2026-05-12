@@ -234,7 +234,10 @@ interface AvailableSource {
   themeCount: number
 }
 
-export function IssueTrendsCard({ serviceFilter }: { serviceFilter?: string } = {}) {
+export function IssueTrendsCard({
+  serviceFilter,
+  tabSlot,
+}: { serviceFilter?: string; tabSlot?: React.ReactNode } = {}) {
   const [snapshot, setSnapshot] = useState<IssueTrendsSnapshot | null>(null)
   const [sources, setSources] = useState<AvailableSource[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -389,6 +392,8 @@ export function IssueTrendsCard({ serviceFilter }: { serviceFilter?: string } = 
             )}
           </div>
         )}
+
+        {tabSlot && <div className="mb-4">{tabSlot}</div>}
 
         {running === 'all' && (
           <p className="text-xs text-muted-foreground mb-3">

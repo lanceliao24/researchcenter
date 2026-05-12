@@ -18,16 +18,20 @@ export function PerServiceTabs() {
   const filter = active === 'all' ? undefined : active
 
   return (
-    <div className="space-y-4">
-      <Tabs value={active} onValueChange={setActive}>
-        <TabsList>
-          {TABS.map(t => (
-            <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-      <IssueTrendsCard serviceFilter={filter} />
-      <CounterInsightsCard serviceFilter={filter} />
-    </div>
+    <Tabs value={active} onValueChange={setActive}>
+      <div className="space-y-4">
+        <IssueTrendsCard
+          serviceFilter={filter}
+          tabSlot={
+            <TabsList>
+              {TABS.map(t => (
+                <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>
+              ))}
+            </TabsList>
+          }
+        />
+        <CounterInsightsCard serviceFilter={filter} />
+      </div>
+    </Tabs>
   )
 }
