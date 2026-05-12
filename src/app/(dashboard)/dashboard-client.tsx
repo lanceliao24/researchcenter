@@ -372,31 +372,25 @@ function AlertsCard({ alerts, embedded = false }: { alerts: PrAlert[]; embedded?
 }
 
 function AlertRow({ alert }: { alert: PrAlert }) {
-  const styles: Record<AlertLevel, { bar: string; icon: string; badge: string; label: string }> = {
+  const labels: Record<AlertLevel, { label: string; badge: string }> = {
     critical: {
-      bar: 'border-l-red-500 bg-red-50/40 dark:bg-red-950/20',
-      icon: 'text-red-600 dark:text-red-400',
-      badge: 'border-red-500/40 text-red-600 dark:text-red-400',
       label: '高風險',
+      badge: 'border-red-500/50 text-red-600 dark:text-red-400 bg-red-50/60 dark:bg-red-950/20',
     },
     warning: {
-      bar: 'border-l-amber-500 bg-amber-50/40 dark:bg-amber-950/20',
-      icon: 'text-amber-600 dark:text-amber-400',
-      badge: 'border-amber-500/40 text-amber-600 dark:text-amber-400',
       label: '注意',
+      badge: 'border-amber-500/50 text-amber-600 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20',
     },
     info: {
-      bar: 'border-l-blue-500 bg-blue-50/40 dark:bg-blue-950/20',
-      icon: 'text-blue-600 dark:text-blue-400',
-      badge: 'border-blue-500/40 text-blue-600 dark:text-blue-400',
       label: '資訊',
+      badge: 'border-border text-muted-foreground',
     },
   }
-  const s = styles[alert.level]
+  const s = labels[alert.level]
   return (
-    <div className={cn('border-l-2 rounded-r-sm px-3 py-2', s.bar)}>
+    <div className="rounded-md border px-3 py-2">
       <div className="flex items-start gap-2">
-        <AlertTriangle className={cn('h-3.5 w-3.5 mt-0.5 shrink-0', s.icon)} />
+        <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
             <Badge variant="outline" className={cn('text-[10px] py-0', s.badge)}>

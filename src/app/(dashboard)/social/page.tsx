@@ -15,6 +15,7 @@ import {
 import { Search, ExternalLink, RefreshCw, Plus, X, Loader2, ChevronLeft, ChevronRight, BarChart3, AlertTriangle, Check } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts'
 import { mockSocialPosts } from '@/lib/mock-data'
+import { WordCloud } from '@/components/social/WordCloud'
 import type { SocialPost, Keyword } from '@/types'
 import type { WeeklyVolumePoint } from '@/lib/pr-alerts'
 
@@ -198,6 +199,21 @@ export default function SocialPage() {
     const neg = filteredPosts.filter(p => p.sentiment === 'negative').length
     const neu = filteredPosts.filter(p => p.sentiment === 'neutral').length
     return { total, pos, neg, neu }
+  }, [filteredPosts])
+
+  const wordStats = useMemo(() => {
+    const pos = new Map<string, number>()
+    const neg = new Map<string, number>()
+    for (const p of filteredPosts) {
+      const kw = p.keyword?.trim()
+      if (!kw) continue
+      if (p.sentiment === 'positive') pos.set(kw, (pos.get(kw) ?? 0) + 1)
+      else if (p.sentiment === 'negative') neg.set(kw, (neg.get(kw) ?? 0) + 1)
+    }
+    return {
+      positive: Array.from(pos.entries()).map(([word, count]) => ({ word, count })),
+      negative: Array.from(neg.entries()).map(([word, count]) => ({ word, count })),
+    }
   }, [filteredPosts])
 
   function clearFilters() {
@@ -443,6 +459,26 @@ export default function SocialPage() {
             </button>
           )
         })}
+      </div>
+
+      {/* Word clouds */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">正向討論詞雲</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <WordCloud words={wordStats.positive} tone="positive" emptyLabel="目前篩選結果無正向討論" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">負向討論詞雲</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <WordCloud words={wordStats.negative} tone="negative" emptyLabel="目前篩選結果無負向討論" />
+          </CardContent>
+        </Card>
       </div>
 
       {/* Posts */}

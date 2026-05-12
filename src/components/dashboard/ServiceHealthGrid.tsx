@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
-import { AlertOctagon, ArrowUpRight, Car, Bike, Package, KeyRound } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { ArrowUpRight, Car, Bike, Package, KeyRound } from 'lucide-react'
 
 export interface ServiceHealth {
   service: string                  // taxi / rental / scooter / shuttle
@@ -22,15 +23,15 @@ const ICON_BY_SERVICE: Record<string, React.ComponentType<{ className?: string }
   shuttle: Package,
 }
 
-function npsTone(nps: number): { bg: string; fg: string } {
-  if (nps >= 50) return { bg: 'bg-emerald-50 dark:bg-emerald-950/30', fg: 'text-emerald-700 dark:text-emerald-400' }
-  if (nps >= 0) return { bg: 'bg-amber-50 dark:bg-amber-950/30', fg: 'text-amber-700 dark:text-amber-400' }
-  return { bg: 'bg-rose-50 dark:bg-rose-950/30', fg: 'text-rose-700 dark:text-rose-400' }
+function npsStatus(nps: number): { label: string; variant: 'default' | 'secondary' | 'outline' } {
+  if (nps >= 50) return { label: '良好', variant: 'secondary' }
+  if (nps >= 0) return { label: '持平', variant: 'outline' }
+  return { label: '待改善', variant: 'default' }
 }
 
 function ServiceHealthCard({ data }: { data: ServiceHealth }) {
   const Icon = ICON_BY_SERVICE[data.service] ?? Car
-  const tone = npsTone(data.nps)
+  const status = npsStatus(data.nps)
 
   return (
     <Link
@@ -48,9 +49,14 @@ function ServiceHealthCard({ data }: { data: ServiceHealth }) {
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            <div className={`rounded-md ${tone.bg} px-2 py-1.5`}>
-              <div className="text-[10px] text-muted-foreground">NPS</div>
-              <div className={`text-lg font-bold tabular-nums ${tone.fg}`}>
+            <div className="rounded-md bg-muted/40 px-2 py-1.5">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[10px] text-muted-foreground">NPS</span>
+                <Badge variant={status.variant} className="text-[9px] py-0 px-1 leading-tight">
+                  {status.label}
+                </Badge>
+              </div>
+              <div className="text-lg font-bold tabular-nums">
                 {data.nps >= 0 ? '+' : ''}{data.nps.toFixed(1)}
               </div>
             </div>
@@ -68,19 +74,14 @@ function ServiceHealthCard({ data }: { data: ServiceHealth }) {
           </div>
 
           {data.prioritizeCount > 0 ? (
-            <div className="flex items-center gap-1.5 rounded-md border border-rose-300/60 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/15 px-2 py-1">
-              <AlertOctagon className="h-3 w-3 text-rose-600 dark:text-rose-400" />
-              <span className="text-[11px] font-medium text-rose-700 dark:text-rose-400">
-                {data.prioritizeCount} 個 prioritize
-              </span>
-              {data.risingCount > 0 && (
-                <span className="text-[11px] text-rose-600 dark:text-rose-400">
-                  · {data.risingCount} 上升
-                </span>
-              )}
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground px-1">
+              <Badge variant="outline" className="text-[10px] py-0">
+                {data.prioritizeCount} prioritize
+              </Badge>
+              {data.risingCount > 0 && <span>· {data.risingCount} 上升</span>}
             </div>
           ) : (
-            <div className="text-[11px] text-muted-foreground px-2 py-1">無 prioritize 議題</div>
+            <div className="text-[11px] text-muted-foreground px-1">無 prioritize 議題</div>
           )}
         </CardContent>
       </Card>
@@ -101,7 +102,7 @@ function computeAggregate(services: ServiceHealth[]) {
 export function ServiceHealthGrid({ services }: { services: ServiceHealth[] }) {
   if (services.length === 0) return null
   const agg = computeAggregate(services)
-  const aggTone = agg ? npsTone(agg.nps) : null
+  const aggStatus = agg ? npsStatus(agg.nps) : null
 
   return (
     <div className="space-y-3">
@@ -112,7 +113,7 @@ export function ServiceHealthGrid({ services }: { services: ServiceHealth[] }) {
         <span className="text-[11px] text-muted-foreground">點卡片查看 issue trends</span>
       </div>
 
-      {agg && aggTone && (
+      {agg && aggStatus && (
         <div className="rounded-lg border bg-muted/20 px-4 py-3">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">
@@ -124,8 +125,13 @@ export function ServiceHealthGrid({ services }: { services: ServiceHealth[] }) {
           </div>
           <div className="grid grid-cols-3 gap-4 mt-2">
             <div>
-              <div className="text-[10px] text-muted-foreground">總體 NPS</div>
-              <div className={`text-2xl font-bold tabular-nums ${aggTone.fg}`}>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-muted-foreground">總體 NPS</span>
+                <Badge variant={aggStatus.variant} className="text-[9px] py-0 px-1 leading-tight">
+                  {aggStatus.label}
+                </Badge>
+              </div>
+              <div className="text-2xl font-bold tabular-nums">
                 {agg.nps >= 0 ? '+' : ''}{agg.nps.toFixed(1)}
               </div>
             </div>
@@ -137,8 +143,11 @@ export function ServiceHealthGrid({ services }: { services: ServiceHealth[] }) {
             </div>
             <div>
               <div className="text-[10px] text-muted-foreground">Prioritize 議題</div>
-              <div className={`text-2xl font-bold tabular-nums ${agg.prioritize > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-muted-foreground'}`}>
-                {agg.prioritize}
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-bold tabular-nums">{agg.prioritize}</span>
+                {agg.prioritize > 0 && (
+                  <Badge variant="outline" className="text-[10px] py-0">需追蹤</Badge>
+                )}
               </div>
             </div>
           </div>
