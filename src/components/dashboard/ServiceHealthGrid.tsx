@@ -11,8 +11,6 @@ export interface ServiceHealth {
   month: string                    // 2026-03
   responses: number
   nps: number                      // -100 to 100
-  promoter_pct: number             // 0-100, % rating 9-10
-  detractor_pct: number            // 0-100, % rating 0-6
   satisfied_pct: number            // 0-100
   prioritizeCount: number
   risingCount: number              // # of issues with trend=rising
@@ -61,11 +59,6 @@ function ServiceHealthCard({ data }: { data: ServiceHealth }) {
               <div className="text-lg font-bold tabular-nums">
                 {data.nps >= 0 ? '+' : ''}{data.nps.toFixed(1)}
               </div>
-              <div className="text-[10px] text-muted-foreground tabular-nums">
-                <span className="text-emerald-600 dark:text-emerald-400">+{data.promoter_pct.toFixed(0)}</span>
-                <span className="mx-1">·</span>
-                <span className="text-rose-600 dark:text-rose-400">-{data.detractor_pct.toFixed(0)}</span>
-              </div>
             </div>
             <div className="rounded-md bg-muted/40 px-2 py-1.5">
               <div className="text-[10px] text-muted-foreground">滿意度</div>
@@ -101,18 +94,9 @@ function computeAggregate(services: ServiceHealth[]) {
   if (totalResponses === 0) return null
   // Weight by responses for fair aggregate
   const weightedNps = services.reduce((s, x) => s + x.nps * x.responses, 0) / totalResponses
-  const weightedPromoter = services.reduce((s, x) => s + x.promoter_pct * x.responses, 0) / totalResponses
-  const weightedDetractor = services.reduce((s, x) => s + x.detractor_pct * x.responses, 0) / totalResponses
   const weightedSatisfied = services.reduce((s, x) => s + x.satisfied_pct * x.responses, 0) / totalResponses
   const totalPrioritize = services.reduce((s, x) => s + x.prioritizeCount, 0)
-  return {
-    totalResponses,
-    nps: weightedNps,
-    promoter: weightedPromoter,
-    detractor: weightedDetractor,
-    satisfied: weightedSatisfied,
-    prioritize: totalPrioritize,
-  }
+  return { totalResponses, nps: weightedNps, satisfied: weightedSatisfied, prioritize: totalPrioritize }
 }
 
 export function ServiceHealthGrid({ services }: { services: ServiceHealth[] }) {
@@ -130,7 +114,7 @@ export function ServiceHealthGrid({ services }: { services: ServiceHealth[] }) {
       </div>
 
       {agg && aggStatus && (
-        <div className="rounded-lg border bg-muted/20 px-4 py-3">
+        <div className="rounded-lg border bg-card px-4 py-3">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">
               總體（4 服務合計，按回覆數加權）
@@ -149,11 +133,6 @@ export function ServiceHealthGrid({ services }: { services: ServiceHealth[] }) {
               </div>
               <div className="text-2xl font-bold tabular-nums">
                 {agg.nps >= 0 ? '+' : ''}{agg.nps.toFixed(1)}
-              </div>
-              <div className="text-[11px] text-muted-foreground tabular-nums">
-                <span className="text-emerald-600 dark:text-emerald-400">+{agg.promoter.toFixed(0)}</span>
-                <span className="mx-1">·</span>
-                <span className="text-rose-600 dark:text-rose-400">-{agg.detractor.toFixed(0)}</span>
               </div>
             </div>
             <div>
