@@ -48,12 +48,57 @@ function detectQuarterFromTitle(title: string): string | null {
   return null
 }
 
-function collectRawIssues(): RawIssue[] {
+export interface AvailableSource {
+  id: string                // "doc:102" | "month:2026-03"
+  kind: 'quarterly' | 'monthly'
+  label: string             // "Taxi_2025Q1.csv (Q1 / 計程車)" | "2026-03 月度問卷"
+  themeCount: number        // how many raw themes this source contributes
+}
+
+export function listAvailableSources(): AvailableSource[] {
+  const out: AvailableSource[] = []
+
+  for (const doc of getLocalDocuments('survey')) {
+    const summary = getSurveySummary(doc.id)
+    const n = summary?.themes?.length ?? 0
+    if (n === 0) continue
+    const quarter = detectQuarterFromTitle(doc.title)
+    const service = detectServiceFromTitle(doc.title)
+    const serviceLabel = getServiceLabel(service)
+    const periodLabel = quarter ?? doc.title
+    out.push({
+      id: `doc:${doc.id}`,
+      kind: 'quarterly',
+      label: `${doc.title}（${periodLabel} / ${serviceLabel}）`,
+      themeCount: n,
+    })
+  }
+
+  for (const month of listMonths()) {
+    let n = 0
+    for (const m of listMetricsByMonth(month)) {
+      n += m.themes?.complaint?.length ?? 0
+      n += m.themes?.suggestion?.length ?? 0
+    }
+    if (n === 0) continue
+    out.push({
+      id: `month:${month}`,
+      kind: 'monthly',
+      label: `${month} 月度問卷（8 服務）`,
+      themeCount: n,
+    })
+  }
+
+  return out
+}
+
+function collectRawIssues(allowSources: Set<string> | null): RawIssue[] {
   const out: RawIssue[] = []
 
   // 1. Per-document survey summaries (Q1.csv / Q2.csv etc.)
   const docs = getLocalDocuments('survey')
   for (const doc of docs) {
+    if (allowSources && !allowSources.has(`doc:${doc.id}`)) continue
     const summary = getSurveySummary(doc.id)
     if (!summary?.themes?.length) continue
     const quarter = detectQuarterFromTitle(doc.title)
@@ -78,6 +123,7 @@ function collectRawIssues(): RawIssue[] {
   // 2. Monthly metrics themes (already tagged with service)
   const months = listMonths()
   for (const month of months) {
+    if (allowSources && !allowSources.has(`month:${month}`)) continue
     const metricsForMonth = listMetricsByMonth(month)
     for (const m of metricsForMonth) {
       const themes = m.themes
@@ -314,8 +360,15 @@ ${wrapUntrusted(
   }
 }
 
-export async function GET() {
-  return NextResponse.json({ snapshot: readIssueTrends() })
+export async function GET(req: NextRequest) {
+  const view = req.nextUrl.searchParams.get('view')
+  if (view === 'sources') {
+    return NextResponse.json({ sources: listAvailableSources() })
+  }
+  return NextResponse.json({
+    snapshot: readIssueTrends(),
+    sources: listAvailableSources(),
+  })
 }
 
 export async function POST(req: NextRequest) {
@@ -328,8 +381,12 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}))
   const onlyService = typeof body.service === 'string' ? body.service : null
+  const sourceFilter: Set<string> | null =
+    Array.isArray(body.sources) && body.sources.length > 0
+      ? new Set(body.sources.filter((s: unknown): s is string => typeof s === 'string'))
+      : null
 
-  const rawIssues = collectRawIssues()
+  const rawIssues = collectRawIssues(sourceFilter)
   if (rawIssues.length === 0) {
     return NextResponse.json(
       { error: '沒有可用議題：請先對問卷跑「主題摘要」或匯入月度問卷' },

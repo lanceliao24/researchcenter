@@ -227,8 +227,17 @@ function ServiceSection({
   )
 }
 
+interface AvailableSource {
+  id: string
+  kind: 'quarterly' | 'monthly'
+  label: string
+  themeCount: number
+}
+
 export function IssueTrendsCard() {
   const [snapshot, setSnapshot] = useState<IssueTrendsSnapshot | null>(null)
+  const [sources, setSources] = useState<AvailableSource[]>([])
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState<'all' | string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -238,25 +247,46 @@ export function IssueTrendsCard() {
     fetch('/api/surveys/issue-trends')
       .then(r => r.json())
       .then(d => {
-        // Defensive: tolerate the old flat-schema snapshot by treating it as "no data"
         if (d.snapshot && Array.isArray(d.snapshot.byService)) {
           setSnapshot(d.snapshot)
         } else {
           setSnapshot(null)
         }
+        const src: AvailableSource[] = Array.isArray(d.sources) ? d.sources : []
+        setSources(src)
+        // default: all selected
+        setSelected(new Set(src.map(s => s.id)))
       })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 
+  function toggleSource(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleAll() {
+    setSelected(prev => prev.size === sources.length ? new Set() : new Set(sources.map(s => s.id)))
+  }
+
   async function regenerate(service?: string) {
     setRunning(service ?? 'all')
     setError(null)
     try {
+      const body: { service?: string; sources?: string[] } = service ? { service } : {}
+      // Only send sources filter if user has deselected anything (otherwise let API default).
+      if (selected.size < sources.length) {
+        body.sources = Array.from(selected)
+      }
       const res = await fetch('/api/surveys/issue-trends', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(service ? { service } : {}),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -270,6 +300,11 @@ export function IssueTrendsCard() {
       setRunning(null)
     }
   }
+
+  const allSelected = sources.length > 0 && selected.size === sources.length
+  const selectedThemes = sources
+    .filter(s => selected.has(s.id))
+    .reduce((sum, s) => sum + s.themeCount, 0)
 
   return (
     <Card>
@@ -294,12 +329,12 @@ export function IssueTrendsCard() {
           size="sm"
           variant={snapshot ? 'outline' : 'default'}
           onClick={() => regenerate()}
-          disabled={running !== null}
+          disabled={running !== null || selected.size === 0}
         >
           {running === 'all' ? (
             <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Pro 對齊中{elapsed > 0 ? ` (${elapsed}s)` : ''}</>
           ) : snapshot ? (
-            <><RefreshCw className="h-3.5 w-3.5 mr-1.5" />全部重新對齊</>
+            <><RefreshCw className="h-3.5 w-3.5 mr-1.5" />重新對齊（{selected.size} 份）</>
           ) : (
             <><Sparkles className="h-3.5 w-3.5 mr-1.5" />產生議題趨勢</>
           )}
@@ -307,6 +342,54 @@ export function IssueTrendsCard() {
       </CardHeader>
       <CardContent>
         {error && <p className="text-xs text-destructive mb-3">{error}</p>}
+
+        {sources.length > 0 && (
+          <div className="mb-4 border rounded-md bg-muted/20 p-3">
+            <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+              <span className="text-xs font-medium">
+                納入分析的問卷（{selected.size}/{sources.length}，共 {selectedThemes} 筆主題）
+              </span>
+              <button
+                type="button"
+                onClick={toggleAll}
+                className="text-[11px] text-primary hover:underline"
+                disabled={running !== null}
+              >
+                {allSelected ? '全部取消' : '全部勾選'}
+              </button>
+            </div>
+            <div className="space-y-1">
+              {sources.map(src => {
+                const isChecked = selected.has(src.id)
+                return (
+                  <label
+                    key={src.id}
+                    className={`flex items-center gap-2 px-2 py-1 rounded text-xs cursor-pointer transition-colors ${
+                      isChecked ? 'bg-accent/30' : 'hover:bg-accent/20'
+                    } ${running !== null ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleSource(src.id)}
+                      disabled={running !== null}
+                      className="h-3.5 w-3.5 cursor-pointer"
+                    />
+                    <Badge variant="outline" className="text-[10px]">
+                      {src.kind === 'quarterly' ? '季度' : '月度'}
+                    </Badge>
+                    <span className="flex-1">{src.label}</span>
+                    <span className="text-muted-foreground tabular-nums">{src.themeCount} 主題</span>
+                  </label>
+                )
+              })}
+            </div>
+            {selected.size === 0 && (
+              <p className="text-[11px] text-amber-600 mt-2">至少要勾一份問卷才能對齊</p>
+            )}
+          </div>
+        )}
+
         {running === 'all' && (
           <p className="text-xs text-muted-foreground mb-3">
             Gemini 2.5 Pro 對每個服務分別對齊（每服務 ~60-90 秒，會耗每服務 1 份 Pro 配額）。
