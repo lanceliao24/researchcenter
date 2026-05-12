@@ -69,11 +69,16 @@ export function DashboardClient({
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
-      <div className="flex items-baseline gap-3 flex-wrap">
-        <h1 className="text-xl font-bold">總覽</h1>
-        <p className="text-xs text-muted-foreground">
-          社群聲量 + 問卷 + 公關事件 · AI 自動洞察
-        </p>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-baseline gap-3 flex-wrap">
+          <h1 className="text-xl font-bold">總覽</h1>
+          <p className="text-xs text-muted-foreground hidden md:block">
+            社群聲量 + 問卷 + 公關事件 · AI 自動洞察
+          </p>
+        </div>
+        <div className="w-full md:w-[420px]">
+          <AISearchBar prompts={QUICK_ASK_PROMPTS} />
+        </div>
       </div>
 
       {/* Priority issues — pulled from latest issue-trends snapshot */}
@@ -154,15 +159,11 @@ export function DashboardClient({
         </CardContent>
       </Card>
 
-      {/* AI 搜尋框 — 看完所有 dashboard 後想追問什麼 */}
-      <AISearchHero prompts={QUICK_ASK_PROMPTS} />
     </div>
   )
 }
 
-/* ----------- Subcomponents ----------- */
-
-function AISearchHero({ prompts }: { prompts: string[] }) {
+function AISearchBar({ prompts }: { prompts: string[] }) {
   const router = useRouter()
   const [q, setQ] = useState('')
 
@@ -173,12 +174,7 @@ function AISearchHero({ prompts }: { prompts: string[] }) {
   }
 
   return (
-    <div className="rounded-lg border bg-muted/20 p-3">
-      <div className="flex items-center gap-2 mb-2">
-        <Sparkles className="h-3.5 w-3.5 text-primary" />
-        <span className="text-xs font-semibold">想追問什麼？</span>
-        <span className="text-[11px] text-muted-foreground">AI 整合社群、訪談、問卷</span>
-      </div>
+    <div className="w-full">
       <form
         onSubmit={(e) => { e.preventDefault(); submit() }}
         className="flex items-center gap-2"
@@ -188,22 +184,23 @@ function AISearchHero({ prompts }: { prompts: string[] }) {
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="例：本月計程車最常被抱怨的問題？"
-            className="pl-8 h-8 text-sm"
+            placeholder="想追問什麼？例：本月計程車最常被抱怨..."
+            className="pl-8 h-9 text-sm"
           />
         </div>
-        <Button type="submit" disabled={!q.trim()} size="sm" className="h-8 px-3 text-xs">
-          提問
-          <ArrowRight className="h-3 w-3 ml-1" />
+        <Button type="submit" disabled={!q.trim()} size="sm" className="h-9 px-3 text-xs">
+          <Sparkles className="h-3.5 w-3.5 mr-1" />
+          問 AI
         </Button>
       </form>
-      <div className="flex items-center gap-1.5 flex-wrap mt-2">
+      <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
         {prompts.slice(0, 3).map((p, i) => (
           <button
             key={i}
             type="button"
             onClick={() => submit(p)}
-            className="text-[11px] px-2 py-0.5 rounded-full border bg-background hover:bg-accent hover:border-primary/40 text-muted-foreground hover:text-foreground transition-colors"
+            className="text-[11px] px-2 py-0.5 rounded-full border bg-background hover:bg-accent hover:border-primary/40 text-muted-foreground hover:text-foreground transition-colors truncate max-w-[180px]"
+            title={p}
           >
             {p}
           </button>
@@ -212,6 +209,8 @@ function AISearchHero({ prompts }: { prompts: string[] }) {
     </div>
   )
 }
+
+/* ----------- Subcomponents ----------- */
 
 function AlertsCard({ alerts, embedded = false }: { alerts: PrAlert[]; embedded?: boolean }) {
   const critical = alerts.filter(a => a.level === 'critical').length
