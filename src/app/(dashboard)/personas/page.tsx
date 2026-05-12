@@ -61,6 +61,7 @@ export default function PersonasPage() {
   const [generating, setGenerating] = useState(false)
   const [reindexing, setReindexing] = useState(false)
   const generateElapsed = useElapsed(generating)
+  const [progress, setProgress] = useState<{ done: number; total: number; lastName?: string } | null>(null)
   const [preview, setPreview] = useState<PreviewInfo | null>(null)
   const [filePath, setFilePath] = useState('/Users/lanceliao/Downloads/rental.yml')
   const [limit, setLimit] = useState(10)
@@ -143,6 +144,7 @@ export default function PersonasPage() {
   async function handleGenerate() {
     setGenerating(true)
     setMessage(null)
+    setProgress(null)
     try {
       const res = await fetch('/api/personas/generate', {
         method: 'POST',
@@ -153,18 +155,55 @@ export default function PersonasPage() {
           ...(genCategory !== 'auto' ? { category: genCategory } : {}),
         }),
       })
-      const data = await res.json()
+
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
         setMessage(data.error ?? '產生失敗')
-      } else {
-        setMessage(`已產生 ${data.created} 個 persona（合格受訪者 ${data.eligible} 位，總對話人數 ${data.totalSpeakers}）`)
-        await loadPersonas()
-        await loadPreview()
+        return
       }
+
+      // Streaming NDJSON: read events as they arrive.
+      const reader = res.body?.getReader()
+      if (!reader) {
+        setMessage('伺服器未支援 streaming')
+        return
+      }
+      const decoder = new TextDecoder()
+      let buf = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const lines = buf.split('\n')
+        buf = lines.pop() || ''
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed) continue
+          try {
+            const event = JSON.parse(trimmed)
+            if (event.type === 'start') {
+              setProgress({ done: 0, total: event.total })
+            } else if (event.type === 'progress') {
+              setProgress({
+                done: event.done,
+                total: event.total,
+                lastName: event.ok ? event.persona?.name : event.speaker,
+              })
+            } else if (event.type === 'complete') {
+              setMessage(`已產生 ${event.created} 個 persona（合格受訪者 ${event.eligible} 位，總對話人數 ${event.totalSpeakers}）`)
+            }
+          } catch {
+            /* skip malformed line */
+          }
+        }
+      }
+      await loadPersonas()
+      await loadPreview()
     } catch (err) {
       setMessage((err as Error).message)
     } finally {
       setGenerating(false)
+      setProgress(null)
     }
   }
 
@@ -268,9 +307,32 @@ export default function PersonasPage() {
           </div>
 
           {generating && (
-            <p className="text-xs text-muted-foreground">
-              Gemini 2.5 Pro 正在從訪談逐字稿萃取 persona，每位 ~15-25 秒（{limit} 位約需 {Math.ceil(limit * 20 / 60)} 分鐘）
-            </p>
+            <div className="space-y-2">
+              {progress ? (
+                <>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">
+                      {progress.lastName ? (
+                        <>剛完成：<span className="font-medium text-foreground">{progress.lastName}</span></>
+                      ) : '準備中...'}
+                    </span>
+                    <span className="tabular-nums font-medium">
+                      {progress.done} / {progress.total}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary transition-all"
+                      style={{ width: `${progress.total > 0 ? (progress.done / progress.total) * 100 : 0}%` }}
+                    />
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Gemini 2.5 Pro 啟動中，每位 ~15-25 秒
+                </p>
+              )}
+            </div>
           )}
 
           {preview?.available && (

@@ -84,62 +84,112 @@ export async function POST(request: NextRequest) {
   }
 
   const sourceFile = path.resolve(inputPath)
-  const created: Persona[] = []
-  const errors: { speaker: string; error: string }[] = []
+  const total = selected.length
 
-  for (const profile of selected) {
-    try {
-      const digest = buildSpeakerDigest(profile, 8000)
-      const json = await generatePersonaJson(digest, profile.speaker)
-      incrementBoth(auth, 'gemini_chat_pro')
-      const persona = upsertPersonaFromSource({
-        name: String(json.name ?? profile.speaker),
-        category,
-        age_range: String(json.age_range ?? '未揭露'),
-        gender: String(json.gender ?? '未揭露'),
-        occupation: String(json.occupation ?? '未揭露'),
-        location: String(json.location ?? '未揭露'),
-        summary: String(json.summary ?? ''),
-        background: String(json.background ?? ''),
-        goals: Array.isArray(json.goals) ? json.goals.map(String) : [],
-        pain_points: Array.isArray(json.pain_points) ? json.pain_points.map(String) : [],
-        behaviors: Array.isArray(json.behaviors) ? json.behaviors.map(String) : [],
-        service_preferences: Array.isArray(json.service_preferences) ? json.service_preferences.map(String) : [],
-        quotes: Array.isArray(json.quotes) ? json.quotes.map(String) : [],
-        tags: Array.isArray(json.tags) ? json.tags.map(String) : [],
-        transcript_digest: digest,
-        source: {
-          file: sourceFile,
-          speaker: profile.speaker,
-          utterance_count: profile.turnCount,
-        },
-      })
-      created.push(persona)
-
-      try {
-        const { indexPersonaQuotes } = await import('@/lib/rag/persona-indexer')
-        await indexPersonaQuotes(persona)
-      } catch (err) {
-        console.error(`[persona-index] ${persona.id} failed:`, err)
+  // NDJSON streaming response — one event per line.
+  const encoder = new TextEncoder()
+  const stream = new ReadableStream({
+    async start(controller) {
+      const emit = (event: Record<string, unknown>) => {
+        controller.enqueue(encoder.encode(JSON.stringify(event) + '\n'))
       }
-    } catch (err) {
-      errors.push({ speaker: profile.speaker, error: (err as Error).message })
-    }
-  }
 
-  if (created.length > 0) {
-    logAudit(auth, 'persona.generate', null, {
-      count: created.length,
-      filePath: inputPath,
-    })
-  }
-  return NextResponse.json({
-    created: created.length,
-    errors,
-    eligible: interviewees.length,
-    totalSpeakers: profiles.length,
-    quota: getQuotaStatus('gemini_chat_pro'),
-    personas: created,
+      emit({
+        type: 'start',
+        total,
+        eligible: interviewees.length,
+        totalSpeakers: profiles.length,
+      })
+
+      const created: Persona[] = []
+      const errors: { speaker: string; error: string }[] = []
+
+      for (let i = 0; i < selected.length; i++) {
+        const profile = selected[i]
+        try {
+          const digest = buildSpeakerDigest(profile, 8000)
+          const json = await generatePersonaJson(digest, profile.speaker)
+          incrementBoth(auth, 'gemini_chat_pro')
+          const persona = upsertPersonaFromSource({
+            name: String(json.name ?? profile.speaker),
+            category,
+            age_range: String(json.age_range ?? '未揭露'),
+            gender: String(json.gender ?? '未揭露'),
+            occupation: String(json.occupation ?? '未揭露'),
+            location: String(json.location ?? '未揭露'),
+            summary: String(json.summary ?? ''),
+            background: String(json.background ?? ''),
+            goals: Array.isArray(json.goals) ? json.goals.map(String) : [],
+            pain_points: Array.isArray(json.pain_points) ? json.pain_points.map(String) : [],
+            behaviors: Array.isArray(json.behaviors) ? json.behaviors.map(String) : [],
+            service_preferences: Array.isArray(json.service_preferences) ? json.service_preferences.map(String) : [],
+            quotes: Array.isArray(json.quotes) ? json.quotes.map(String) : [],
+            tags: Array.isArray(json.tags) ? json.tags.map(String) : [],
+            transcript_digest: digest,
+            source: {
+              file: sourceFile,
+              speaker: profile.speaker,
+              utterance_count: profile.turnCount,
+            },
+          })
+          created.push(persona)
+
+          try {
+            const { indexPersonaQuotes } = await import('@/lib/rag/persona-indexer')
+            await indexPersonaQuotes(persona)
+          } catch (err) {
+            console.error(`[persona-index] ${persona.id} failed:`, err)
+          }
+
+          emit({
+            type: 'progress',
+            done: i + 1,
+            total,
+            ok: true,
+            persona: { id: persona.id, name: persona.name, speaker: profile.speaker },
+          })
+        } catch (err) {
+          const message = (err as Error).message
+          errors.push({ speaker: profile.speaker, error: message })
+          emit({
+            type: 'progress',
+            done: i + 1,
+            total,
+            ok: false,
+            speaker: profile.speaker,
+            error: message,
+          })
+        }
+      }
+
+      if (created.length > 0) {
+        logAudit(auth, 'persona.generate', null, {
+          count: created.length,
+          filePath: inputPath,
+        })
+      }
+
+      emit({
+        type: 'complete',
+        created: created.length,
+        errors,
+        eligible: interviewees.length,
+        totalSpeakers: profiles.length,
+        quota: getQuotaStatus('gemini_chat_pro'),
+        userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat_pro'),
+        personas: created,
+      })
+
+      controller.close()
+    },
+  })
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/x-ndjson',
+      'Cache-Control': 'no-cache, no-transform',
+    },
   })
 }
 
