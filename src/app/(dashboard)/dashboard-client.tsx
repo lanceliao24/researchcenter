@@ -28,6 +28,7 @@ import { QUICK_ASK_PROMPTS } from '@/lib/quick-asks'
 import { MonthlyOverviewCard, type MonthlyOverview } from '@/components/surveys/monthly-overview'
 import { InsightsOverview } from '@/components/insights/insights-overview'
 import { TopicAlignmentCard } from '@/components/insights/topic-alignment'
+import { QuotaPanel } from '@/components/quota/QuotaPanel'
 
 type CloudCategory = '租車' | '計程車' | '共享機車' | 'LINE GO 總覽'
 type AnalysisShape = Record<CloudCategory, { positive: { word: string; count: number }[]; negative: { word: string; count: number }[] }>
@@ -180,8 +181,11 @@ export function DashboardClient({
         </div>
       </div>
 
-      {/* Row 2: 社群 ↔ 問卷議題對齊 */}
-      <TopicAlignmentCard />
+      {/* Row 2: 配額 + 社群 ↔ 問卷議題對齊 */}
+      <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+        <QuotaPanel />
+        <TopicAlignmentCard />
+      </div>
 
       {/* Row 3: 最近社群討論（全寬） */}
       <Card>
