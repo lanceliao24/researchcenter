@@ -146,7 +146,7 @@ function ServiceCounterSection({
   )
 }
 
-export function CounterInsightsCard() {
+export function CounterInsightsCard({ serviceFilter }: { serviceFilter?: string } = {}) {
   const [snapshot, setSnapshot] = useState<CounterInsightsSnapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState<'all' | string | null>(null)
@@ -238,14 +238,21 @@ export function CounterInsightsCard() {
           </p>
         ) : (
           <div className="space-y-4">
-            {snapshot.byService.map(s => (
-              <ServiceCounterSection
-                key={s.service}
-                data={s}
-                onRegenerate={regenerate}
-                regenerating={running === s.service || running === 'all'}
-              />
-            ))}
+            {snapshot.byService
+              .filter(s => !serviceFilter || s.service === serviceFilter)
+              .map(s => (
+                <ServiceCounterSection
+                  key={s.service}
+                  data={s}
+                  onRegenerate={regenerate}
+                  regenerating={running === s.service || running === 'all'}
+                />
+              ))}
+            {serviceFilter && snapshot.byService.every(s => s.service !== serviceFilter) && (
+              <p className="text-xs text-muted-foreground text-center py-6">
+                此服務尚無矛盾分析
+              </p>
+            )}
           </div>
         )}
       </CardContent>

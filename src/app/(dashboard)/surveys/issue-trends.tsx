@@ -234,7 +234,7 @@ interface AvailableSource {
   themeCount: number
 }
 
-export function IssueTrendsCard() {
+export function IssueTrendsCard({ serviceFilter }: { serviceFilter?: string } = {}) {
   const [snapshot, setSnapshot] = useState<IssueTrendsSnapshot | null>(null)
   const [sources, setSources] = useState<AvailableSource[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -403,14 +403,21 @@ export function IssueTrendsCard() {
           </p>
         ) : (
           <div className="space-y-4">
-            {snapshot.byService.map(s => (
-              <ServiceSection
-                key={s.service}
-                trends={s}
-                onRegenerate={regenerate}
-                regenerating={running === s.service || running === 'all'}
-              />
-            ))}
+            {snapshot.byService
+              .filter(s => !serviceFilter || s.service === serviceFilter)
+              .map(s => (
+                <ServiceSection
+                  key={s.service}
+                  trends={s}
+                  onRegenerate={regenerate}
+                  regenerating={running === s.service || running === 'all'}
+                />
+              ))}
+            {serviceFilter && snapshot.byService.every(s => s.service !== serviceFilter) && (
+              <p className="text-xs text-muted-foreground text-center py-6">
+                此服務尚無議題趨勢分析
+              </p>
+            )}
           </div>
         )}
       </CardContent>
