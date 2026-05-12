@@ -19,6 +19,9 @@ import {
   detectServiceFromTitle,
   getServiceLabel,
   type CanonicalIssue,
+  type IssueAction,
+  type IssueConfidence,
+  type IssueImpact,
   type IssueKind,
   type IssueOccurrence,
   type IssueTrend,
@@ -123,11 +126,14 @@ function uniquePeriodsOf(issues: RawIssue[]): string[] {
   return Array.from(new Set(issues.map(r => r.period))).sort()
 }
 
-const SYSTEM_PROMPT = `你是研究分析助手，擅長把跨問卷的議題對齊成統一座標系，看出時間趨勢。
+const SYSTEM_PROMPT = `你是研究分析助手，擅長把跨問卷的議題對齊成統一座標系，看出時間趨勢，並提供 actionable 的決策建議。
 
 **重要：本次處理的所有 raw_issues 都來自同一個服務別**（例：計程車）。請只對這一個服務做議題對齊，不要試著跨服務泛化。
 
-任務：把 raw_issues 合併同義 成 3-12 個 canonical 議題，並判斷每個議題的時間趨勢。
+任務：
+1. 把 raw_issues 合併同義 成 3-12 個 canonical 議題
+2. 判斷每個議題的時間趨勢
+3. 為每個議題提供 **Decision Layer**：impact / confidence / recommended_action
 
 **嚴格輸出合法 JSON，不可包含 markdown code fence 或其他文字。**
 
@@ -140,20 +146,45 @@ const SYSTEM_PROMPT = `你是研究分析助手，擅長把跨問卷的議題對
       "kind": "complaint" | "suggestion" | "mixed",
       "occurrence_indexes": [0, 3, 7],
       "trend": "rising" | "falling" | "stable" | "single",
-      "rationale": "趨勢判斷依據（20-50 字）"
+      "rationale": "趨勢判斷依據（20-50 字）",
+      "impact": "high" | "medium" | "low",
+      "confidence": "high" | "medium" | "low",
+      "recommended_action": "prioritize" | "investigate" | "monitor" | "defer",
+      "action_rationale": "為什麼這個建議（30-60 字）"
     }
   ],
-  "summary": "整體 narrative：哪幾個議題長期惡化、哪些改善、哪些只是 single shot（80-150 字）"
+  "summary": "整體 narrative：點出最高優先的議題 + 為什麼（80-150 字）"
 }
 
 判斷規則：
-- 同義議題：例「上下車地址輸入問題」+「地址輸入搜尋邏輯」+「定位輸入錯誤」→ 同一個 canonical「地址輸入體驗」
-- trend = "single" 當該議題只在 1 個 period 出現
-- trend = "rising" / "falling" 當 count 或 frequency 在時序上明顯上升 / 下降（≥ 30%）
-- trend = "stable" 當變化 < 30% 或方向不明
+
+【trend】
+- "single"：只在 1 個 period 出現
+- "rising" / "falling"：count 或 frequency 在時序上明顯上升 / 下降（≥ 30%）
+- "stable"：變化 < 30% 或方向不明
+
+【impact】議題對使用者體驗 / 業務的影響
+- "high"：核心流程受阻（叫不到車、付款失敗、安全顧慮）、或抱怨佔比 > 20%
+- "medium"：明顯摩擦但仍可完成任務（介面難用、優惠不清楚）、或佔比 5-20%
+- "low"：邊緣抱怨（特定情境、單一裝置）、佔比 < 5%
+
+【confidence】證據強度
+- "high"：≥ 2 期出現 + raw evidence count 充足 + 跨來源（如季度 + 月度都有）
+- "medium"：1-2 期出現 + 中等證據量
+- "low"：只在 1 個 source 出現、或樣本數明顯偏少（< 5）、或內容含糊
+
+【recommended_action】
+- "prioritize"：impact high + (trend rising 或 confidence high) → 排入下個 sprint
+- "investigate"：impact medium-high 但 confidence 不夠（需要更多訊息確認） → 開研究訪談 / 補資料
+- "monitor"：trend stable / falling，或 impact medium 但已知正在改善 → 持續觀察
+- "defer"：impact low 且 confidence low → 暫不處理
+
+其他：
+- 同義議題：例「上下車地址輸入問題」+「地址輸入搜尋邏輯」→ 同一個 canonical
 - raw_issues 已標好 period（如 2025-Q1 / 2026-03），請忠實對齊
 - 不要創造 raw_issues 沒有的議題
 - occurrence_indexes 必須是 raw_issues 中真實存在的 0-based index
+- summary 必須提到 prioritize 級議題（如果有）
 - 繁體中文`
 
 interface AICanonicalIssue {
@@ -163,6 +194,10 @@ interface AICanonicalIssue {
   occurrence_indexes?: unknown
   trend?: unknown
   rationale?: unknown
+  impact?: unknown
+  confidence?: unknown
+  recommended_action?: unknown
+  action_rationale?: unknown
 }
 
 function parseAIResponse(raw: string): { issues: AICanonicalIssue[]; summary: string } {
@@ -207,6 +242,21 @@ function sanitizeIssue(
       evidence: r.evidence,
     }
   })
+  const impact: IssueImpact | undefined =
+    raw.impact === 'high' || raw.impact === 'medium' || raw.impact === 'low'
+      ? raw.impact
+      : undefined
+  const confidence: IssueConfidence | undefined =
+    raw.confidence === 'high' || raw.confidence === 'medium' || raw.confidence === 'low'
+      ? raw.confidence
+      : undefined
+  const recommended_action: IssueAction | undefined =
+    raw.recommended_action === 'prioritize' ||
+    raw.recommended_action === 'investigate' ||
+    raw.recommended_action === 'monitor' ||
+    raw.recommended_action === 'defer'
+      ? raw.recommended_action
+      : undefined
   return {
     title,
     description: typeof raw.description === 'string' ? raw.description : '',
@@ -214,6 +264,11 @@ function sanitizeIssue(
     occurrences,
     trend,
     rationale: typeof raw.rationale === 'string' ? raw.rationale : '',
+    impact,
+    confidence,
+    recommended_action,
+    action_rationale:
+      typeof raw.action_rationale === 'string' ? raw.action_rationale : undefined,
   }
 }
 

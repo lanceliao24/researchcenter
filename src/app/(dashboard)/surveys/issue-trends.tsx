@@ -14,9 +14,16 @@ import {
   GitMerge,
   ChevronDown,
   ChevronRight,
+  AlertOctagon,
+  Search,
+  Eye,
+  PauseCircle,
 } from 'lucide-react'
 import type {
   CanonicalIssue,
+  IssueAction,
+  IssueConfidence,
+  IssueImpact,
   IssueTrend,
   IssueTrendsSnapshot,
   ServiceTrends,
@@ -33,10 +40,40 @@ const trendStyle: Record<
   single: { icon: Minus, cls: 'text-slate-400', label: '僅一期' },
 }
 
+const impactStyle: Record<IssueImpact, { cls: string; label: string }> = {
+  high: { cls: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border-rose-500/40', label: '高影響' },
+  medium: { cls: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border-amber-500/40', label: '中影響' },
+  low: { cls: 'bg-slate-100 text-slate-600 dark:bg-slate-900/40 dark:text-slate-400 border-slate-400/40', label: '低影響' },
+}
+
+const confidenceStyle: Record<IssueConfidence, { cls: string; label: string }> = {
+  high: { cls: 'text-emerald-700 dark:text-emerald-400', label: '信心高' },
+  medium: { cls: 'text-slate-600 dark:text-slate-400', label: '信心中' },
+  low: { cls: 'text-slate-400 dark:text-slate-500', label: '信心低' },
+}
+
+const actionStyle: Record<IssueAction, { icon: React.ComponentType<{ className?: string }>; cls: string; label: string }> = {
+  prioritize: { icon: AlertOctagon, cls: 'bg-rose-600 text-white border-rose-600', label: '優先處理' },
+  investigate: { icon: Search, cls: 'bg-amber-500 text-white border-amber-500', label: '深入研究' },
+  monitor: { icon: Eye, cls: 'bg-sky-500 text-white border-sky-500', label: '持續觀察' },
+  defer: { icon: PauseCircle, cls: 'bg-slate-400 text-white border-slate-400', label: '暫不處理' },
+}
+
+const ACTION_ORDER: IssueAction[] = ['prioritize', 'investigate', 'monitor', 'defer']
+const CONFIDENCE_ORDER: IssueConfidence[] = ['high', 'medium', 'low']
 const TREND_ORDER: IssueTrend[] = ['rising', 'stable', 'falling', 'single']
 
 function sortIssues(issues: CanonicalIssue[]) {
   return [...issues].map((iss, i) => ({ iss, i })).sort((a, b) => {
+    // 1. Recommended action (prioritize > investigate > monitor > defer; undefined last)
+    const aAct = a.iss.recommended_action ? ACTION_ORDER.indexOf(a.iss.recommended_action) : 99
+    const bAct = b.iss.recommended_action ? ACTION_ORDER.indexOf(b.iss.recommended_action) : 99
+    if (aAct !== bAct) return aAct - bAct
+    // 2. Confidence (high > medium > low; undefined last)
+    const aConf = a.iss.confidence ? CONFIDENCE_ORDER.indexOf(a.iss.confidence) : 99
+    const bConf = b.iss.confidence ? CONFIDENCE_ORDER.indexOf(b.iss.confidence) : 99
+    if (aConf !== bConf) return aConf - bConf
+    // 3. Trend (rising surfaces first)
     const ord = TREND_ORDER.indexOf(a.iss.trend) - TREND_ORDER.indexOf(b.iss.trend)
     if (ord !== 0) return ord
     return b.iss.occurrences.length - a.iss.occurrences.length
@@ -96,6 +133,9 @@ function ServiceSection({
         {sorted.map(({ iss, i }) => {
           const T = trendStyle[iss.trend]
           const isOpen = expanded.has(i)
+          const A = iss.recommended_action ? actionStyle[iss.recommended_action] : null
+          const Imp = iss.impact ? impactStyle[iss.impact] : null
+          const Conf = iss.confidence ? confidenceStyle[iss.confidence] : null
           return (
             <div key={i} className="px-3 py-2">
               <button
@@ -108,9 +148,25 @@ function ServiceSection({
                 ) : (
                   <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                 )}
+                {A && (
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium shrink-0 ${A.cls}`}>
+                    <A.icon className="h-3 w-3" />
+                    {A.label}
+                  </span>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-sm">{iss.title}</span>
+                    {Imp && (
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${Imp.cls}`}>
+                        {Imp.label}
+                      </span>
+                    )}
+                    {Conf && (
+                      <span className={`text-[10px] font-medium ${Conf.cls}`}>
+                        {Conf.label}
+                      </span>
+                    )}
                     <Badge variant="outline" className="text-[10px]">{iss.kind}</Badge>
                     <span className="text-xs text-muted-foreground">
                       {iss.occurrences.length} 次 · 跨 {new Set(iss.occurrences.map(o => o.period)).size} 期
@@ -128,9 +184,15 @@ function ServiceSection({
 
               {isOpen && (
                 <div className="mt-3 ml-7 space-y-2">
+                  {iss.action_rationale && (
+                    <p className="text-xs">
+                      <span className="font-medium text-foreground">建議理由：</span>
+                      <span className="text-muted-foreground">{iss.action_rationale}</span>
+                    </p>
+                  )}
                   {iss.rationale && (
                     <p className="text-xs text-muted-foreground italic">
-                      判斷依據：{iss.rationale}
+                      趨勢判斷：{iss.rationale}
                     </p>
                   )}
                   <div className="space-y-1.5">

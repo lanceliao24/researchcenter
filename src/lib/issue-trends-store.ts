@@ -4,6 +4,9 @@ import { storePath } from './paths'
 
 export type IssueKind = 'complaint' | 'suggestion' | 'mixed'
 export type IssueTrend = 'rising' | 'falling' | 'stable' | 'single'
+export type IssueImpact = 'high' | 'medium' | 'low'
+export type IssueConfidence = 'high' | 'medium' | 'low'
+export type IssueAction = 'prioritize' | 'investigate' | 'monitor' | 'defer'
 
 export interface IssueOccurrence {
   period: string         // 2025-Q1 / 2025-Q2 / 2026-03
@@ -22,6 +25,11 @@ export interface CanonicalIssue {
   occurrences: IssueOccurrence[]
   trend: IssueTrend
   rationale: string
+  // ── Decision layer (optional; older snapshots may not have these) ──
+  impact?: IssueImpact
+  confidence?: IssueConfidence
+  recommended_action?: IssueAction
+  action_rationale?: string
 }
 
 export interface ServiceTrends {
