@@ -94,6 +94,30 @@ function ContradictionRow({ c }: { c: Contradiction }) {
   )
 }
 
+export function ServiceContradictionsBody({ data }: { data: ServiceCounterInsights }) {
+  return (
+    <>
+      {data.summary && (
+        <div className="border-l-2 border-primary/40 bg-accent/20 m-3 rounded-r px-3 py-2">
+          <p className="text-sm whitespace-pre-line">{data.summary}</p>
+        </div>
+      )}
+
+      {data.contradictions.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-4 px-3">
+          AI 沒找到明確的矛盾議題
+        </p>
+      ) : (
+        <div className="p-3 space-y-2">
+          {data.contradictions.map((c, i) => (
+            <ContradictionRow key={i} c={c} />
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
+
 function ServiceCounterSection({
   data,
   onRegenerate,
@@ -124,29 +148,20 @@ function ServiceCounterSection({
           只重跑這個
         </Button>
       </div>
-
-      {data.summary && (
-        <div className="border-l-2 border-primary/40 bg-accent/20 m-3 rounded-r px-3 py-2">
-          <p className="text-sm whitespace-pre-line">{data.summary}</p>
-        </div>
-      )}
-
-      {data.contradictions.length === 0 ? (
-        <p className="text-xs text-muted-foreground text-center py-4 px-3">
-          AI 沒找到明確的矛盾議題
-        </p>
-      ) : (
-        <div className="p-3 space-y-2">
-          {data.contradictions.map((c, i) => (
-            <ContradictionRow key={i} c={c} />
-          ))}
-        </div>
-      )}
+      <ServiceContradictionsBody data={data} />
     </div>
   )
 }
 
-export function CounterInsightsCard({ serviceFilter }: { serviceFilter?: string } = {}) {
+export function CounterInsightsCard({
+  serviceFilter,
+  hideServiceSections,
+  onRegenerateComplete,
+}: {
+  serviceFilter?: string
+  hideServiceSections?: boolean
+  onRegenerateComplete?: () => void
+} = {}) {
   const [snapshot, setSnapshot] = useState<CounterInsightsSnapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState<'all' | string | null>(null)
@@ -177,6 +192,7 @@ export function CounterInsightsCard({ serviceFilter }: { serviceFilter?: string 
       } else {
         setSnapshot(data.snapshot)
         setSkippedServices(Array.isArray(data.skippedServices) ? data.skippedServices : [])
+        onRegenerateComplete?.()
       }
     } catch (err) {
       setError((err as Error).message)
@@ -236,7 +252,7 @@ export function CounterInsightsCard({ serviceFilter }: { serviceFilter?: string 
           <p className="text-xs text-muted-foreground text-center py-6">
             尚未分析，點右上「產生矛盾分析」啟動（每服務 1 份 Pro 配額）
           </p>
-        ) : (
+        ) : hideServiceSections ? null : (
           <div className="space-y-4">
             {snapshot.byService
               .filter(s => !serviceFilter || s.service === serviceFilter)

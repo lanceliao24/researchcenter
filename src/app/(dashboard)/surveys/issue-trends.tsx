@@ -80,15 +80,7 @@ function sortIssues(issues: CanonicalIssue[]) {
   })
 }
 
-function ServiceSection({
-  trends,
-  onRegenerate,
-  regenerating,
-}: {
-  trends: ServiceTrends
-  onRegenerate: (service: string) => void
-  regenerating: boolean
-}) {
+export function ServiceTrendsBody({ trends }: { trends: ServiceTrends }) {
   const [expanded, setExpanded] = useState<Set<number>>(new Set())
   const sorted = useMemo(() => sortIssues(trends.issues), [trends.issues])
 
@@ -102,27 +94,7 @@ function ServiceSection({
   }
 
   return (
-    <div className="border rounded-lg">
-      <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30 flex-wrap gap-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-medium text-sm">{trends.serviceLabel}</span>
-          <Badge variant="outline" className="text-[10px]">{trends.service}</Badge>
-          <span className="text-xs text-muted-foreground">
-            {trends.issues.length} 議題 · {trends.rawCount} 筆 raw · 跨 {trends.periods.length} 期 ({trends.periods.join(' → ')})
-          </span>
-        </div>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 px-2 text-xs"
-          onClick={() => onRegenerate(trends.service)}
-          disabled={regenerating}
-        >
-          <RefreshCw className="h-3 w-3 mr-1" />
-          只重跑這個
-        </Button>
-      </div>
-
+    <>
       {trends.summary && (
         <div className="border-l-2 border-primary/40 bg-accent/20 m-3 rounded-r px-3 py-2">
           <p className="text-sm whitespace-pre-line">{trends.summary}</p>
@@ -223,6 +195,41 @@ function ServiceSection({
           )
         })}
       </div>
+    </>
+  )
+}
+
+function ServiceSection({
+  trends,
+  onRegenerate,
+  regenerating,
+}: {
+  trends: ServiceTrends
+  onRegenerate: (service: string) => void
+  regenerating: boolean
+}) {
+  return (
+    <div className="border rounded-lg">
+      <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30 flex-wrap gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-medium text-sm">{trends.serviceLabel}</span>
+          <Badge variant="outline" className="text-[10px]">{trends.service}</Badge>
+          <span className="text-xs text-muted-foreground">
+            {trends.issues.length} 議題 · {trends.rawCount} 筆 raw · 跨 {trends.periods.length} 期 ({trends.periods.join(' → ')})
+          </span>
+        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 px-2 text-xs"
+          onClick={() => onRegenerate(trends.service)}
+          disabled={regenerating}
+        >
+          <RefreshCw className="h-3 w-3 mr-1" />
+          只重跑這個
+        </Button>
+      </div>
+      <ServiceTrendsBody trends={trends} />
     </div>
   )
 }
@@ -237,7 +244,14 @@ interface AvailableSource {
 export function IssueTrendsCard({
   serviceFilter,
   tabSlot,
-}: { serviceFilter?: string; tabSlot?: React.ReactNode } = {}) {
+  hideServiceSections,
+  onRegenerateComplete,
+}: {
+  serviceFilter?: string
+  tabSlot?: React.ReactNode
+  hideServiceSections?: boolean
+  onRegenerateComplete?: () => void
+} = {}) {
   const [snapshot, setSnapshot] = useState<IssueTrendsSnapshot | null>(null)
   const [sources, setSources] = useState<AvailableSource[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -296,6 +310,7 @@ export function IssueTrendsCard({
         setError(data.error ?? '產生失敗')
       } else {
         setSnapshot(data.snapshot)
+        onRegenerateComplete?.()
       }
     } catch (err) {
       setError((err as Error).message)
@@ -406,7 +421,7 @@ export function IssueTrendsCard({
           <p className="text-xs text-muted-foreground text-center py-6">
             尚未產生議題趨勢，點右上「產生議題趨勢」啟動（每服務耗 1 份 Pro 配額）
           </p>
-        ) : (
+        ) : hideServiceSections ? null : (
           <div className="space-y-4">
             {snapshot.byService
               .filter(s => !serviceFilter || s.service === serviceFilter)
