@@ -30,7 +30,7 @@ export function PriorityChips({ issues }: { issues: PriorityIssue[] }) {
   })
 
   return (
-    <div className="rounded-lg border border-rose-300 dark:border-rose-900 bg-rose-50/40 dark:bg-rose-950/15 px-4 py-3">
+    <div className="rounded-lg border bg-card px-4 py-3">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
           <AlertOctagon className="h-4 w-4 text-rose-600 dark:text-rose-400" />
@@ -39,7 +39,7 @@ export function PriorityChips({ issues }: { issues: PriorityIssue[] }) {
         </div>
         <Link
           href="/surveys"
-          className="text-xs text-rose-700 dark:text-rose-400 hover:underline font-medium inline-flex items-center gap-0.5"
+          className="text-xs text-muted-foreground hover:text-foreground hover:underline font-medium inline-flex items-center gap-0.5"
         >
           全部 <ArrowRight className="h-3 w-3" />
         </Link>
@@ -52,19 +52,15 @@ export function PriorityChips({ issues }: { issues: PriorityIssue[] }) {
             <Link
               key={i}
               href="/surveys"
-              className={`group inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-xs font-medium transition-colors ${
-                isRising
-                  ? 'border-rose-500 bg-rose-100/60 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 hover:bg-rose-200/60'
-                  : 'border-amber-400 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 hover:bg-amber-100'
-              }`}
+              className="group inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border bg-card hover:bg-accent text-foreground text-xs font-medium transition-colors"
             >
-              <span className="text-[10px] uppercase tracking-wider opacity-70">{iss.serviceLabel}</span>
-              <span className="opacity-30">·</span>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{iss.serviceLabel}</span>
+              <span className="text-muted-foreground/40">·</span>
               <span>{iss.title}</span>
               {isRising && (
-                <span className="inline-flex items-center gap-0.5 text-rose-700 dark:text-rose-400">
-                  <TIcon className="h-3 w-3" />
-                  <span className="text-[10px]">惡化中</span>
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded border border-rose-500/40 text-rose-600 dark:text-rose-400 text-[10px]">
+                  <TIcon className="h-2.5 w-2.5" />
+                  惡化中
                 </span>
               )}
             </Link>
