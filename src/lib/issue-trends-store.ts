@@ -49,10 +49,10 @@ export interface IssueTrendsSnapshot {
 
 export const SERVICE_LABELS: Record<string, string> = {
   taxi: '計程車',
-  rental: '租車',
+  rental: '共享汽車',
   scooter: '共享機車',
   designated_driver: '代駕',
-  shuttle: '接送',
+  shuttle: '機場接送',
   station_rental: '站點租車',
   charging: '充電',
   chauffeured_car: '包車',

@@ -88,16 +88,63 @@ function ServiceHealthCard({ data }: { data: ServiceHealth }) {
   )
 }
 
+function computeAggregate(services: ServiceHealth[]) {
+  const totalResponses = services.reduce((s, x) => s + x.responses, 0)
+  if (totalResponses === 0) return null
+  // Weight by responses for fair aggregate
+  const weightedNps = services.reduce((s, x) => s + x.nps * x.responses, 0) / totalResponses
+  const weightedSatisfied = services.reduce((s, x) => s + x.satisfied_pct * x.responses, 0) / totalResponses
+  const totalPrioritize = services.reduce((s, x) => s + x.prioritizeCount, 0)
+  return { totalResponses, nps: weightedNps, satisfied: weightedSatisfied, prioritize: totalPrioritize }
+}
+
 export function ServiceHealthGrid({ services }: { services: ServiceHealth[] }) {
   if (services.length === 0) return null
+  const agg = computeAggregate(services)
+  const aggTone = agg ? npsTone(agg.nps) : null
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-muted-foreground tracking-wider uppercase">
           跨服務健康度
         </h2>
         <span className="text-[11px] text-muted-foreground">點卡片查看 issue trends</span>
       </div>
+
+      {agg && aggTone && (
+        <div className="rounded-lg border bg-muted/20 px-4 py-3">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">
+              總體（4 服務合計，按回覆數加權）
+            </div>
+            <div className="text-[11px] text-muted-foreground tabular-nums">
+              {agg.totalResponses.toLocaleString()} 回覆
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-4 mt-2">
+            <div>
+              <div className="text-[10px] text-muted-foreground">總體 NPS</div>
+              <div className={`text-2xl font-bold tabular-nums ${aggTone.fg}`}>
+                {agg.nps >= 0 ? '+' : ''}{agg.nps.toFixed(1)}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] text-muted-foreground">總體滿意度</div>
+              <div className="text-2xl font-bold tabular-nums">
+                {agg.satisfied.toFixed(1)}<span className="text-sm">%</span>
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] text-muted-foreground">Prioritize 議題</div>
+              <div className={`text-2xl font-bold tabular-nums ${agg.prioritize > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-muted-foreground'}`}>
+                {agg.prioritize}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {services.map(s => (
           <ServiceHealthCard key={s.service} data={s} />

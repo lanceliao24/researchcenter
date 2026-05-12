@@ -72,7 +72,7 @@ export default async function DashboardPage() {
           if (iss.trend === 'rising') rising += 1
           priorityIssues.push({
             service: svc.service,
-            serviceLabel: svc.serviceLabel,
+            serviceLabel: getServiceLabel(svc.service),
             title: iss.title,
             trend: iss.trend,
             impact: iss.impact ?? 'high',
