@@ -62,12 +62,12 @@ export function PriorityChips({ issues }: { issues: PriorityIssue[] }) {
       </div>
       <div className="space-y-3">
         {ordered.map(g => (
-          <div key={g.service} className="grid grid-cols-1 md:grid-cols-[110px_1fr] gap-2 md:gap-3 items-start">
-            <div className="text-xs font-semibold text-muted-foreground tracking-wider uppercase md:pt-1.5">
+          <div key={g.service}>
+            <div className="text-xs font-medium text-foreground mb-1.5">
               {g.label}
-              <span className="ml-1 text-muted-foreground/60 normal-case font-normal">· {g.items.length}</span>
+              <span className="ml-1.5 text-muted-foreground font-normal">({g.items.length})</span>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {g.items.map((iss, i) => {
                 const TIcon = trendIcon[iss.trend]
                 const isRising = iss.trend === 'rising'
@@ -75,7 +75,7 @@ export function PriorityChips({ issues }: { issues: PriorityIssue[] }) {
                   <Link
                     key={i}
                     href="/surveys"
-                    className="group inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border bg-card hover:bg-accent text-foreground text-xs font-medium transition-colors"
+                    className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-card hover:bg-accent text-foreground text-xs transition-colors"
                   >
                     <span>{iss.title}</span>
                     {isRising && (
