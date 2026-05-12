@@ -22,16 +22,32 @@ const trendIcon = {
 export function PriorityChips({ issues }: { issues: PriorityIssue[] }) {
   if (issues.length === 0) return null
 
-  // rising 排最前；其餘維持原序
-  const sorted = [...issues].sort((a, b) => {
-    if (a.trend === 'rising' && b.trend !== 'rising') return -1
-    if (a.trend !== 'rising' && b.trend === 'rising') return 1
-    return 0
+  // Group by service. Within each group, rising-trend issues come first.
+  const groups = new Map<string, { label: string; items: PriorityIssue[] }>()
+  for (const iss of issues) {
+    const g = groups.get(iss.service)
+    if (g) g.items.push(iss)
+    else groups.set(iss.service, { label: iss.serviceLabel, items: [iss] })
+  }
+  const ordered = Array.from(groups.entries()).map(([service, g]) => ({
+    service,
+    label: g.label,
+    items: [...g.items].sort((a, b) => {
+      if (a.trend === 'rising' && b.trend !== 'rising') return -1
+      if (a.trend !== 'rising' && b.trend === 'rising') return 1
+      return 0
+    }),
+    risingCount: g.items.filter(x => x.trend === 'rising').length,
+  }))
+  // Sort groups: groups with rising-trend issues first, then by item count.
+  ordered.sort((a, b) => {
+    if (a.risingCount !== b.risingCount) return b.risingCount - a.risingCount
+    return b.items.length - a.items.length
   })
 
   return (
     <div className="rounded-lg border bg-card px-4 py-3">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-1.5">
           <AlertOctagon className="h-4 w-4 text-rose-600 dark:text-rose-400" />
           <span className="text-sm font-semibold">本期最該處理</span>
@@ -44,28 +60,36 @@ export function PriorityChips({ issues }: { issues: PriorityIssue[] }) {
           全部 <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
-      <div className="flex flex-wrap gap-2">
-        {sorted.map((iss, i) => {
-          const TIcon = trendIcon[iss.trend]
-          const isRising = iss.trend === 'rising'
-          return (
-            <Link
-              key={i}
-              href="/surveys"
-              className="group inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border bg-card hover:bg-accent text-foreground text-xs font-medium transition-colors"
-            >
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{iss.serviceLabel}</span>
-              <span className="text-muted-foreground/40">·</span>
-              <span>{iss.title}</span>
-              {isRising && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded border border-rose-500/40 text-rose-600 dark:text-rose-400 text-[10px]">
-                  <TIcon className="h-2.5 w-2.5" />
-                  惡化中
-                </span>
-              )}
-            </Link>
-          )
-        })}
+      <div className="space-y-3">
+        {ordered.map(g => (
+          <div key={g.service} className="grid grid-cols-1 md:grid-cols-[110px_1fr] gap-2 md:gap-3 items-start">
+            <div className="text-xs font-semibold text-muted-foreground tracking-wider uppercase md:pt-1.5">
+              {g.label}
+              <span className="ml-1 text-muted-foreground/60 normal-case font-normal">· {g.items.length}</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {g.items.map((iss, i) => {
+                const TIcon = trendIcon[iss.trend]
+                const isRising = iss.trend === 'rising'
+                return (
+                  <Link
+                    key={i}
+                    href="/surveys"
+                    className="group inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border bg-card hover:bg-accent text-foreground text-xs font-medium transition-colors"
+                  >
+                    <span>{iss.title}</span>
+                    {isRising && (
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded border border-rose-500/40 text-rose-600 dark:text-rose-400 text-[10px]">
+                        <TIcon className="h-2.5 w-2.5" />
+                        惡化中
+                      </span>
+                    )}
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )

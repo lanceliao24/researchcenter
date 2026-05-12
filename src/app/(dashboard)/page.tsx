@@ -103,12 +103,16 @@ export default async function DashboardPage() {
         const m = byService.get(svc)
         if (!m) continue
         const p = prioritizeByService.get(svc)
+        const promoter_pct = m.responses > 0 ? (m.promoters / m.responses) * 100 : 0
+        const detractor_pct = m.responses > 0 ? (m.detractors / m.responses) * 100 : 0
         serviceHealth.push({
           service: svc,
           label: getServiceLabel(svc),
           month: m.month,
           responses: m.responses,
           nps: m.nps,
+          promoter_pct,
+          detractor_pct,
           satisfied_pct: m.satisfied_pct,
           prioritizeCount: p?.total ?? 0,
           risingCount: p?.rising ?? 0,
