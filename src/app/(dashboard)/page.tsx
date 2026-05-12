@@ -7,10 +7,13 @@ import {
 import type { PrAlert, SocialCategory } from '@/lib/mock-data'
 import type { SocialPost } from '@/types'
 import { DashboardClient } from './dashboard-client'
-import { getMonthlyOverview, type MonthlyOverview } from '@/lib/monthly-survey-store'
+import { getMonthlyOverview, listMonths, listMetricsByMonth, type MonthlyOverview } from '@/lib/monthly-survey-store'
 import { detectAlerts, filterRecentPosts } from '@/lib/pr-alerts'
-import { readIssueTrends } from '@/lib/issue-trends-store'
+import { readIssueTrends, getServiceLabel } from '@/lib/issue-trends-store'
 import type { PriorityIssue } from '@/components/dashboard/PriorityChips'
+import type { ServiceHealth } from '@/components/dashboard/ServiceHealthGrid'
+
+const FEATURED_SERVICES = ['taxi', 'rental', 'scooter', 'shuttle']
 
 function classifyCategoryLocal(post: SocialPost): SocialCategory {
   const text = `${post.title ?? ''} ${post.description ?? ''} ${post.keyword ?? ''}`.toLowerCase()
@@ -55,13 +58,18 @@ export default async function DashboardPage() {
     volumeKPI = { ...mockVolumeKPI, alertsActive: alerts.length }
   }
 
-  // Extract prioritize issues from issue-trends snapshot (if exists).
+  // Extract prioritize issues + per-service totals from issue-trends snapshot.
   const priorityIssues: PriorityIssue[] = []
+  const prioritizeByService = new Map<string, { total: number; rising: number }>()
   const trends = readIssueTrends()
   if (trends && Array.isArray(trends.byService)) {
     for (const svc of trends.byService) {
+      let total = 0
+      let rising = 0
       for (const iss of svc.issues) {
         if (iss.recommended_action === 'prioritize') {
+          total += 1
+          if (iss.trend === 'rising') rising += 1
           priorityIssues.push({
             service: svc.service,
             serviceLabel: svc.serviceLabel,
@@ -72,6 +80,33 @@ export default async function DashboardPage() {
           })
         }
       }
+      prioritizeByService.set(svc.service, { total, rising })
+    }
+  }
+
+  // Per-service health for the 4 featured services, latest month available.
+  const serviceHealth: ServiceHealth[] = []
+  if (isLocalMode()) {
+    const months = listMonths()
+    const latestMonth = months[0]
+    if (latestMonth) {
+      const metrics = listMetricsByMonth(latestMonth)
+      const byService = new Map(metrics.map(m => [m.service, m]))
+      for (const svc of FEATURED_SERVICES) {
+        const m = byService.get(svc)
+        if (!m) continue
+        const p = prioritizeByService.get(svc)
+        serviceHealth.push({
+          service: svc,
+          label: getServiceLabel(svc),
+          month: m.month,
+          responses: m.responses,
+          nps: m.nps,
+          satisfied_pct: m.satisfied_pct,
+          prioritizeCount: p?.total ?? 0,
+          risingCount: p?.rising ?? 0,
+        })
+      }
     }
   }
 
@@ -80,9 +115,9 @@ export default async function DashboardPage() {
       volumeKPI={volumeKPI}
       alerts={alerts}
       recentPosts={recentPosts}
-      postCategories={postCategories}
       monthlyOverview={monthlyOverview}
       priorityIssues={priorityIssues}
+      serviceHealth={serviceHealth}
     />
   )
 }

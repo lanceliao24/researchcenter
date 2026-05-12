@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,7 +11,6 @@ import {
   Radio,
   ArrowRight,
   Sparkles,
-  Loader2,
   AlertTriangle,
   ShieldAlert,
   Info,
@@ -22,22 +21,12 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SocialPost } from '@/types'
-import type { SocialCategory, PrAlert, AlertLevel } from '@/lib/mock-data'
-import { WordCloud } from '@/components/social/WordCloud'
+import type { PrAlert, AlertLevel } from '@/lib/mock-data'
 import { QUICK_ASK_PROMPTS } from '@/lib/quick-asks'
-import { MonthlyOverviewCard, type MonthlyOverview } from '@/components/surveys/monthly-overview'
+import { type MonthlyOverview } from '@/components/surveys/monthly-overview'
 import { InsightsOverview } from '@/components/insights/insights-overview'
-import { TopicAlignmentCard } from '@/components/insights/topic-alignment'
-import { QuotaPanel } from '@/components/quota/QuotaPanel'
 import { PriorityChips, type PriorityIssue } from '@/components/dashboard/PriorityChips'
-
-type CloudCategory = '租車' | '計程車' | '共享機車' | 'LINE GO 總覽'
-type AnalysisShape = Record<CloudCategory, { positive: { word: string; count: number }[]; negative: { word: string; count: number }[] }>
-
-function tabToCloudCategory(tab: SocialCategory | 'all'): CloudCategory {
-  if (tab === 'all') return 'LINE GO 總覽'
-  return tab as CloudCategory
-}
+import { ServiceHealthGrid, type ServiceHealth } from '@/components/dashboard/ServiceHealthGrid'
 
 const sentimentColor: Record<string, string> = {
   positive: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
@@ -57,63 +46,18 @@ interface Props {
   }
   alerts: PrAlert[]
   recentPosts: SocialPost[]
-  postCategories: Record<number, SocialCategory>
   monthlyOverview: MonthlyOverview | null
   priorityIssues?: PriorityIssue[]
+  serviceHealth?: ServiceHealth[]
 }
 
 export function DashboardClient({
   volumeKPI,
   alerts,
   recentPosts,
-  postCategories,
-  monthlyOverview,
   priorityIssues = [],
+  serviceHealth = [],
 }: Props) {
-  const [categoryFilter, setCategoryFilter] = useState<SocialCategory | 'all'>('all')
-  const [analysis, setAnalysis] = useState<AnalysisShape | null>(null)
-  const [analyzedAt, setAnalyzedAt] = useState<string | null>(null)
-  const [analyzing, setAnalyzing] = useState(false)
-  const [analyzeMsg, setAnalyzeMsg] = useState<string | null>(null)
-
-  const loadAnalysis = useCallback(async () => {
-    try {
-      const res = await fetch('/api/social/analyze')
-      const data = await res.json()
-      setAnalysis(data.analysis ?? null)
-      setAnalyzedAt(data.analyzedAt ?? null)
-    } catch {}
-  }, [])
-
-  useEffect(() => { loadAnalysis() }, [loadAnalysis])
-
-  async function runAnalyze() {
-    setAnalyzing(true)
-    setAnalyzeMsg(null)
-    try {
-      const res = await fetch('/api/social/analyze', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) {
-        setAnalyzeMsg(data.error || '分析失敗')
-      } else {
-        setAnalysis(data.analysis)
-        setAnalyzedAt(new Date().toISOString())
-        setAnalyzeMsg(data.errors?.length ? `部分分類失敗：${data.errors.join('; ')}` : '分析完成')
-      }
-    } catch {
-      setAnalyzeMsg('分析失敗')
-    } finally {
-      setAnalyzing(false)
-    }
-  }
-
-  const filteredPosts = categoryFilter === 'all'
-    ? recentPosts
-    : recentPosts.filter(p => postCategories[p.id] === categoryFilter)
-
-  const cloudCat = tabToCloudCategory(categoryFilter)
-  const cloudData = analysis?.[cloudCat] ?? { positive: [], negative: [] }
-
   function timeAgo(dateStr: string | null) {
     if (!dateStr) return ''
     const diff = Date.now() - new Date(dateStr).getTime()
@@ -122,13 +66,6 @@ export function DashboardClient({
     if (hours < 24) return `${hours} 小時前`
     return `${Math.floor(hours / 24)} 天前`
   }
-
-  const categoryTabs: { key: SocialCategory | 'all'; label: string; count: number }[] = [
-    { key: 'all', label: '全部', count: recentPosts.length },
-    { key: '租車', label: '租車', count: recentPosts.filter(p => postCategories[p.id] === '租車').length },
-    { key: '計程車', label: '計程車', count: recentPosts.filter(p => postCategories[p.id] === '計程車').length },
-    { key: '共享機車', label: '共享機車', count: recentPosts.filter(p => postCategories[p.id] === '共享機車').length },
-  ]
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
@@ -145,129 +82,66 @@ export function DashboardClient({
       {/* Priority issues — pulled from latest issue-trends snapshot */}
       {priorityIssues.length > 0 && <PriorityChips issues={priorityIssues} />}
 
-      {/* Row 1: 左（月度問卷 → 洞察總覽）+ 右（聲量 → 公關預警） */}
+      {/* Per-service health overview */}
+      {serviceHealth.length > 0 && <ServiceHealthGrid services={serviceHealth} />}
+
+      {/* Row 1: 洞察總覽（Pro narrative）+ 社群風險（聲量 + 公關預警合一） */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-6 flex flex-col">
-          <MonthlyOverviewCard overview={monthlyOverview} ctaHref="/surveys" />
-          <div className="flex-1">
-            <InsightsOverview />
-          </div>
-        </div>
-        <div className="space-y-6 flex flex-col">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Radio className="h-4 w-4 text-muted-foreground" />
-                最新社群聲量總覽
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                <KpiCard
-                  label="正向聲量 (本週)"
-                  value={volumeKPI.positive.week}
-                  prev={volumeKPI.positive.prevWeek}
-                  tone="positive"
-                  icon={TrendingUp}
-                />
-                <KpiCard
-                  label="負向聲量 (本週)"
-                  value={volumeKPI.negative.week}
-                  prev={volumeKPI.negative.prevWeek}
-                  tone="negative"
-                  icon={TrendingDown}
-                  invertDelta
-                />
-              </div>
-            </CardContent>
-          </Card>
-          <div className="flex-1">
-            <AlertsCard alerts={alerts} />
-          </div>
-        </div>
+        <InsightsOverview />
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Radio className="h-4 w-4 text-muted-foreground" />
+              社群風險面板
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <KpiCard
+                label="正向聲量 (本週)"
+                value={volumeKPI.positive.week}
+                prev={volumeKPI.positive.prevWeek}
+                tone="positive"
+                icon={TrendingUp}
+              />
+              <KpiCard
+                label="負向聲量 (本週)"
+                value={volumeKPI.negative.week}
+                prev={volumeKPI.negative.prevWeek}
+                tone="negative"
+                icon={TrendingDown}
+                invertDelta
+              />
+            </div>
+            <AlertsCard alerts={alerts} embedded />
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Row 2: 配額 + 社群 ↔ 問卷議題對齊 */}
-      <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-        <QuotaPanel />
-        <TopicAlignmentCard />
-      </div>
-
-      {/* Row 3: 最近社群討論（全寬） */}
+      {/* Row 2: 最近社群討論 — 精簡列表 */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <Radio className="h-4 w-4 text-muted-foreground" />
             最近社群討論
           </CardTitle>
-          <div className="flex items-center gap-3">
-            <Button onClick={runAnalyze} disabled={analyzing} size="sm" variant="outline" className="h-7 text-xs">
-              {analyzing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
-              AI 分析
-            </Button>
-            <Link href="/social" className="text-xs text-primary hover:underline font-medium">
-              查看全部
-            </Link>
-          </div>
+          <Link href="/social" className="text-xs text-primary hover:underline font-medium">
+            查看全部 →
+          </Link>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-1 mb-4 border-b">
-            {categoryTabs.map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setCategoryFilter(tab.key)}
-                className={cn(
-                  'px-3 py-2 text-sm transition-colors relative',
-                  categoryFilter === tab.key
-                    ? 'font-semibold text-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {tab.label}
-                <span className="text-xs ml-1 text-muted-foreground">({tab.count})</span>
-                {categoryFilter === tab.key && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-                )}
-              </button>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 mb-5 border rounded-md p-2 bg-muted/20">
-            <div className="flex flex-col">
-              <div className="flex items-center justify-between px-2 pt-1 pb-0.5">
-                <span className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">正向詞</span>
-                <span className="text-[10px] text-muted-foreground/70">{cloudData.positive.length}</span>
-              </div>
-              <WordCloud words={cloudData.positive} tone="positive" emptyLabel="尚未分析，點擊右上「AI 分析」" />
-            </div>
-            <div className="flex flex-col border-l">
-              <div className="flex items-center justify-between px-2 pt-1 pb-0.5">
-                <span className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">負向詞</span>
-                <span className="text-[10px] text-muted-foreground/70">{cloudData.negative.length}</span>
-              </div>
-              <WordCloud words={cloudData.negative} tone="negative" emptyLabel="　" />
-            </div>
-          </div>
-          {(analyzeMsg || analyzedAt) && (
-            <div className="text-[11px] text-muted-foreground mb-3 -mt-2 px-1">
-              {analyzeMsg && <span>{analyzeMsg}</span>}
-              {analyzedAt && <span className="ml-2">· 分析於 {new Date(analyzedAt).toLocaleString('zh-TW')}</span>}
-            </div>
-          )}
-
           <div className="divide-y">
-            {filteredPosts.slice(0, 10).map((post) => (
+            {recentPosts.slice(0, 5).map((post) => (
               <a
                 key={post.id}
                 href={post.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-start gap-3 py-3 first:pt-0 last:pb-0 hover:bg-accent/30 -mx-2 px-2 rounded-lg transition-colors"
+                className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0 hover:bg-accent/30 -mx-2 px-2 rounded-lg transition-colors"
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium line-clamp-1">{post.title}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{post.description}</p>
-                  <div className="flex gap-1.5 mt-2 items-center flex-wrap">
+                  <div className="flex gap-1.5 mt-1 items-center flex-wrap">
                     <Badge variant="outline" className="text-[11px] py-0">{post.platform}</Badge>
                     {post.sentiment && (
                       <span className={`text-[11px] px-1.5 py-0 rounded ${sentimentColor[post.sentiment]}`}>
@@ -340,8 +214,48 @@ function AISearchHero({ prompts }: { prompts: string[] }) {
   )
 }
 
-function AlertsCard({ alerts }: { alerts: PrAlert[] }) {
+function AlertsCard({ alerts, embedded = false }: { alerts: PrAlert[]; embedded?: boolean }) {
   const critical = alerts.filter(a => a.level === 'critical').length
+  if (embedded) {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm">
+            <ShieldAlert className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium">公關事件預警</span>
+            {alerts.length > 0 && (
+              <Badge
+                variant="outline"
+                className={cn(
+                  'text-[10px] py-0',
+                  critical > 0
+                    ? 'border-red-500/50 text-red-600 dark:text-red-400'
+                    : 'border-amber-500/50 text-amber-600 dark:text-amber-400'
+                )}
+              >
+                {alerts.length} 則
+              </Badge>
+            )}
+          </div>
+          <Link href="/social" className="text-xs text-primary hover:underline font-medium">
+            查看全部
+          </Link>
+        </div>
+        {alerts.length === 0 ? (
+          <div className="text-xs text-muted-foreground py-2 flex items-center gap-1">
+            <Info className="h-3.5 w-3.5 text-muted-foreground/60" />
+            目前無公關事件
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {alerts.slice(0, 3).map(a => (
+              <AlertRow key={a.id} alert={a} />
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
   return (
     <Card className="h-full">
       <CardHeader className="flex flex-row items-center justify-between pb-4">
