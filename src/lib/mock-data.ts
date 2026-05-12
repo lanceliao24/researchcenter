@@ -15,9 +15,9 @@ export const mockKeywords: Keyword[] = [
   { id: 4, keyword: 'LINE TAXI', is_active: true, created_at: '2026-04-01T00:00:00Z' },
 ]
 
-export type SocialCategory = '租車' | '計程車' | '共享機車'
+export type SocialCategory = '計程車' | '共享汽車' | '共享機車' | '機場接送' | '司機端'
 
-export const socialCategories: SocialCategory[] = ['租車', '計程車', '共享機車']
+export const socialCategories: SocialCategory[] = ['計程車', '共享汽車', '共享機車', '機場接送', '司機端']
 
 // category mapping for each post
 export const postCategoryMap: Record<number, SocialCategory> = {}
@@ -57,7 +57,7 @@ export const mockSocialPosts: SocialPost[] = [
 
 // Build category map
 mockSocialPosts.forEach(post => {
-  if (post.id <= 10) postCategoryMap[post.id] = '租車'
+  if (post.id <= 10) postCategoryMap[post.id] = '共享汽車'
   else if (post.id <= 19) postCategoryMap[post.id] = '計程車'
   else postCategoryMap[post.id] = '共享機車'
 })
@@ -128,7 +128,7 @@ export const mockPrAlerts: PrAlert[] = [
     title: '租車還車卡關客訴增加',
     detail: '近 7 天出現 4 則關於「還車 GPS 卡住、客服不退費只給優惠券」相關抱怨，皆來自台北市用戶',
     source: 'Dcard / PTT',
-    category: '租車',
+    category: '共享汽車',
     trigger: '相同關鍵詞 7 天內出現 ≥ 3 次',
     occurred_at: '2026-04-19T09:00:00Z',
   },

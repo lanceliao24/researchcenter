@@ -4,9 +4,11 @@ import type { PrAlert, SocialCategory } from './mock-data'
 const DAY = 24 * 60 * 60 * 1000
 
 function classifyCategory(text: string): SocialCategory {
+  if (/跑單|接單|靠行|當司機|做司機|車行|跑車|接單率|加盟司機/i.test(text)) return '司機端'
+  if (/機場接送|送機|接機|去機場|airport/i.test(text)) return '機場接送'
   if (/機車|wemo|goshare|共享機車|電動機車/i.test(text)) return '共享機車'
   if (/計程車|taxi|叫車|司機|uber|yoxi|55688/i.test(text)) return '計程車'
-  return '租車'
+  return '共享汽車'
 }
 
 function postTimestamp(p: SocialPost): number | null {
@@ -59,7 +61,7 @@ export function detectAlerts(posts: SocialPost[], opts: DetectAlertsOptions = {}
       title: `負向聲量近 ${spikeWindow} 天倍增`,
       detail: `近 ${spikeWindow} 天負向 ${recent.length} 則 vs 前 ${spikeWindow} 天 ${prior.length} 則（+${growth}%）`,
       source: platforms.join(' / '),
-      category: latest ? classifyCategory(`${latest.title ?? ''} ${latest.description ?? ''} ${latest.keyword ?? ''}`) : '租車',
+      category: latest ? classifyCategory(`${latest.title ?? ''} ${latest.description ?? ''} ${latest.keyword ?? ''}`) : '共享汽車',
       trigger: `負面聲量 ${spikeWindow} 天內 +${spikeMultiplier * 100 - 100}%`,
       occurred_at: latest?.published_at ?? new Date(now).toISOString(),
     })

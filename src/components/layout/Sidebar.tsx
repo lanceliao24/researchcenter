@@ -101,13 +101,13 @@ export function Sidebar({ role }: { role?: string }) {
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      'flex items-center gap-3 rounded-sm px-3 py-2 text-[13px] transition-colors border-l-2',
+                      'flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition-colors',
                       isActive
-                        ? 'bg-accent/60 text-foreground font-semibold border-primary'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-accent/30 border-transparent'
+                        ? 'bg-accent text-foreground font-semibold'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent/40'
                     )}
                   >
-                    <item.icon className={cn('h-4 w-4', isActive ? 'text-primary' : 'text-muted-foreground')} />
+                    <item.icon className={cn('h-4 w-4', isActive ? 'text-foreground' : 'text-muted-foreground')} />
                     <span>{item.label}</span>
                   </Link>
                 )

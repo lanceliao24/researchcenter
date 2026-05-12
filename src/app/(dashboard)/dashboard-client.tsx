@@ -18,10 +18,13 @@ import {
   TrendingDown,
   Activity,
   Search,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SocialPost } from '@/types'
-import type { PrAlert, AlertLevel } from '@/lib/mock-data'
+import type { PrAlert, AlertLevel, SocialCategory } from '@/lib/mock-data'
+import { socialCategories } from '@/lib/mock-data'
 import { QUICK_ASK_PROMPTS } from '@/lib/quick-asks'
 import { type MonthlyOverview } from '@/components/surveys/monthly-overview'
 import { InsightsOverview } from '@/components/insights/insights-overview'
@@ -46,6 +49,7 @@ interface Props {
   }
   alerts: PrAlert[]
   recentPosts: SocialPost[]
+  postCategories: Record<number, SocialCategory>
   monthlyOverview: MonthlyOverview | null
   priorityIssues?: PriorityIssue[]
   serviceHealth?: ServiceHealth[]
@@ -55,9 +59,32 @@ export function DashboardClient({
   volumeKPI,
   alerts,
   recentPosts,
+  postCategories,
   priorityIssues = [],
   serviceHealth = [],
 }: Props) {
+  const [categoryFilter, setCategoryFilter] = useState<SocialCategory | 'all'>('all')
+  const [page, setPage] = useState(1)
+  const POSTS_PER_PAGE = 5
+
+  const filteredPosts = categoryFilter === 'all'
+    ? recentPosts
+    : recentPosts.filter(p => postCategories[p.id] === categoryFilter)
+
+  const totalPages = Math.max(1, Math.ceil(filteredPosts.length / POSTS_PER_PAGE))
+  const safePage = Math.min(page, totalPages)
+  const pagedPosts = filteredPosts.slice((safePage - 1) * POSTS_PER_PAGE, safePage * POSTS_PER_PAGE)
+
+  // Reset page when category changes
+  function selectCategory(cat: SocialCategory | 'all') {
+    setCategoryFilter(cat)
+    setPage(1)
+  }
+
+  const categoryCounts: Record<string, number> = { all: recentPosts.length }
+  for (const c of socialCategories) {
+    categoryCounts[c] = recentPosts.filter(p => postCategories[p.id] === c).length
+  }
   function timeAgo(dateStr: string | null) {
     if (!dateStr) return ''
     const diff = Date.now() - new Date(dateStr).getTime()
@@ -68,7 +95,7 @@ export function DashboardClient({
   }
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-6">
+    <div className="max-w-[1400px] mx-auto space-y-8">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-baseline gap-3 flex-wrap">
           <h1 className="text-xl font-bold">總覽</h1>
@@ -81,11 +108,11 @@ export function DashboardClient({
         </div>
       </div>
 
-      {/* Priority issues — pulled from latest issue-trends snapshot */}
-      {priorityIssues.length > 0 && <PriorityChips issues={priorityIssues} />}
-
       {/* Per-service health overview */}
       {serviceHealth.length > 0 && <ServiceHealthGrid services={serviceHealth} />}
+
+      {/* Priority issues — pulled from latest issue-trends snapshot */}
+      {priorityIssues.length > 0 && <PriorityChips issues={priorityIssues} />}
 
       {/* Row 1: 洞察總覽（Pro narrative）+ 社群風險（聲量 + 公關預警合一） */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -120,7 +147,7 @@ export function DashboardClient({
         </Card>
       </div>
 
-      {/* Row 2: 最近社群討論 — 精簡列表 */}
+      {/* Row 2: 最近社群討論 — 帶分類 sidebar */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -132,29 +159,92 @@ export function DashboardClient({
           </Link>
         </CardHeader>
         <CardContent>
-          <div className="divide-y">
-            {recentPosts.slice(0, 5).map((post) => (
-              <a
-                key={post.id}
-                href={post.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0 hover:bg-accent/30 -mx-2 px-2 rounded-lg transition-colors"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium line-clamp-1">{post.title}</p>
-                  <div className="flex gap-1.5 mt-1 items-center flex-wrap">
-                    <Badge variant="outline" className="text-[11px] py-0">{post.platform}</Badge>
-                    {post.sentiment && (
-                      <span className={`text-[11px] px-1.5 py-0 rounded ${sentimentColor[post.sentiment]}`}>
-                        {sentimentLabel[post.sentiment]}
-                      </span>
-                    )}
+          <div className="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-4">
+            {/* Category sidebar */}
+            <div className="flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-visible md:border-r md:pr-3">
+              {(['all', ...socialCategories] as const).map(cat => {
+                const isActive = categoryFilter === cat
+                const label = cat === 'all' ? '全部' : cat
+                const count = categoryCounts[cat] ?? 0
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => selectCategory(cat)}
+                    className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md text-xs whitespace-nowrap transition-colors ${
+                      isActive
+                        ? 'bg-accent font-semibold text-foreground'
+                        : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+                    }`}
+                  >
+                    <span>{label}</span>
+                    <span className={`tabular-nums text-[10px] ${isActive ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>
+                      {count}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Posts list */}
+            <div className="flex flex-col">
+              <div className="divide-y flex-1">
+                {pagedPosts.map((post) => (
+                  <a
+                    key={post.id}
+                    href={post.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0 hover:bg-accent/30 -mx-2 px-2 rounded-lg transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium line-clamp-1">{post.title}</p>
+                      <div className="flex gap-1.5 mt-1 items-center flex-wrap">
+                        <Badge variant="outline" className="text-[11px] py-0">{post.platform}</Badge>
+                        {post.sentiment && (
+                          <span className={`text-[11px] px-1.5 py-0 rounded ${sentimentColor[post.sentiment]}`}>
+                            {sentimentLabel[post.sentiment]}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0 mt-0.5">{timeAgo(post.published_at)}</span>
+                  </a>
+                ))}
+                {pagedPosts.length === 0 && (
+                  <p className="text-xs text-muted-foreground py-4 text-center">
+                    {filteredPosts.length === 0 ? `沒有「${categoryFilter}」分類的貼文` : '沒有貼文'}
+                  </p>
+                )}
+              </div>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-3 mt-2 border-t text-xs">
+                  <span className="text-muted-foreground tabular-nums">
+                    {(safePage - 1) * POSTS_PER_PAGE + 1}–{Math.min(safePage * POSTS_PER_PAGE, filteredPosts.length)} / {filteredPosts.length} 篇
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={safePage <= 1}
+                      className="h-7 w-7 rounded border inline-flex items-center justify-center hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+                    <span className="px-2 tabular-nums text-muted-foreground">
+                      {safePage} / {totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      disabled={safePage >= totalPages}
+                      className="h-7 w-7 rounded border inline-flex items-center justify-center hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </div>
-                <span className="text-xs text-muted-foreground shrink-0 mt-0.5">{timeAgo(post.published_at)}</span>
-              </a>
-            ))}
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

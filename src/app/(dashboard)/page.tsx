@@ -16,10 +16,17 @@ import type { ServiceHealth } from '@/components/dashboard/ServiceHealthGrid'
 const FEATURED_SERVICES = ['taxi', 'rental', 'scooter', 'shuttle']
 
 function classifyCategoryLocal(post: SocialPost): SocialCategory {
-  const text = `${post.title ?? ''} ${post.description ?? ''} ${post.keyword ?? ''}`.toLowerCase()
-  if (/機車|wemo|goshare|共享機車|電動機車/.test(text)) return '共享機車'
-  if (/計程車|taxi|叫車|司機|uber|yoxi|55688/.test(text)) return '計程車'
-  return '租車'
+  const text = `${post.title ?? ''} ${post.description ?? ''} ${post.keyword ?? ''}`
+  // 司機端：駕駛端視角（接單、靠行、跑車收入...）
+  if (/跑單|接單|派遣|靠行|車行|當司機|做司機|開計程車|開LINE GO|接單率|排班|隊員|加盟司機/i.test(text)) return '司機端'
+  // 機場接送
+  if (/機場接送|送機|接機|去機場|airport/i.test(text)) return '機場接送'
+  // 共享機車
+  if (/機車|wemo|goshare|共享機車|電動機車/i.test(text)) return '共享機車'
+  // 計程車
+  if (/計程車|taxi|叫車|uber|yoxi|55688|司機|駕駛/i.test(text)) return '計程車'
+  // default 共享汽車（租車 / irent / 自駕）
+  return '共享汽車'
 }
 
 function computeVolumeFromPosts(posts: SocialPost[], alertCount: number) {
@@ -115,6 +122,7 @@ export default async function DashboardPage() {
       volumeKPI={volumeKPI}
       alerts={alerts}
       recentPosts={recentPosts}
+      postCategories={postCategories}
       monthlyOverview={monthlyOverview}
       priorityIssues={priorityIssues}
       serviceHealth={serviceHealth}
