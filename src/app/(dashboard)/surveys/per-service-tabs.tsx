@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from 'react'
 import { IssueTrendsCard } from './issue-trends'
-import { CounterInsightsCard } from './counter-insights'
 import { MergedServicePanels } from './merged-service-panels'
 
 export function PerServiceTabs() {
@@ -12,7 +11,6 @@ export function PerServiceTabs() {
   return (
     <div className="space-y-4">
       <IssueTrendsCard hideServiceSections onRegenerateComplete={bump} />
-      <CounterInsightsCard hideServiceSections onRegenerateComplete={bump} />
       <MergedServicePanels refreshKey={refreshKey} />
     </div>
   )
