@@ -30,7 +30,7 @@ function MergedServiceBlock({
   const label = trends?.serviceLabel ?? contradictions?.serviceLabel ?? service
 
   return (
-    <div className="border rounded-lg">
+    <div className="border rounded-lg bg-card">
       <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30 gap-2 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-medium text-sm">{label}</span>
