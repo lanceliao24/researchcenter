@@ -62,24 +62,18 @@ function MergedServiceBlock({
         </Button>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
-        <TabsList className="w-full rounded-none border-b bg-transparent h-auto p-0">
-          <TabsTrigger
-            value="trends"
-            className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none h-10"
-            disabled={!trends}
-          >
-            跨問卷議題趨勢
-          </TabsTrigger>
-          <TabsTrigger
-            value="contradictions"
-            className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none h-10"
-            disabled={!contradictions}
-          >
-            Promoter ↔ Detractor 矛盾
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="p-3 pb-0">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
+          <TabsList className="w-full">
+            <TabsTrigger value="trends" disabled={!trends}>
+              跨問卷議題趨勢
+            </TabsTrigger>
+            <TabsTrigger value="contradictions" disabled={!contradictions}>
+              Promoter ↔ Detractor 矛盾
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
 
       {tab === 'trends' && trends && <ServiceTrendsBody trends={trends} />}
       {tab === 'trends' && !trends && (
