@@ -13,6 +13,7 @@ import {
   BookOpen,
   Settings,
   Users,
+  History,
 } from 'lucide-react'
 
 const navSections: { title: string; items: { href: string; label: string; icon: React.ComponentType<{ className?: string }> }[] }[] = [
@@ -39,7 +40,10 @@ const navSections: { title: string; items: { href: string; label: string; icon: 
   },
   {
     title: '系統',
-    items: [{ href: '/settings', label: '設定', icon: Settings }],
+    items: [
+      { href: '/admin/audit-log', label: 'Audit Log', icon: History },
+      { href: '/settings', label: '設定', icon: Settings },
+    ],
   },
 ]
 
