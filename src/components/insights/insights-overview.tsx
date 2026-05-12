@@ -8,21 +8,18 @@ import { Sparkles, Loader2, RefreshCw, AlertTriangle, TrendingUp, Info } from 'l
 import type { DashboardInsight, DashboardInsightsSnapshot } from '@/lib/dashboard-insights-store'
 import { useElapsed } from '@/lib/useElapsed'
 
-const toneStyles: Record<DashboardInsight['tone'], { bar: string; icon: React.ComponentType<{ className?: string }>; iconCls: string }> = {
+const toneStyles: Record<DashboardInsight['tone'], { icon: React.ComponentType<{ className?: string }>; iconCls: string }> = {
   positive: {
-    bar: 'border-l-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20',
     icon: TrendingUp,
     iconCls: 'text-emerald-600 dark:text-emerald-400',
   },
   warning: {
-    bar: 'border-l-amber-500 bg-amber-50/40 dark:bg-amber-950/20',
     icon: AlertTriangle,
     iconCls: 'text-amber-600 dark:text-amber-400',
   },
   info: {
-    bar: 'border-l-sky-500 bg-sky-50/40 dark:bg-sky-950/20',
     icon: Info,
-    iconCls: 'text-sky-600 dark:text-sky-400',
+    iconCls: 'text-muted-foreground',
   },
 }
 
@@ -119,7 +116,7 @@ export function InsightsOverview() {
               const style = toneStyles[it.tone]
               const Icon = style.icon
               return (
-                <div key={i} className={`border-l-2 rounded-r-sm px-3 py-2.5 ${style.bar}`}>
+                <div key={i} className="rounded-md border px-3 py-2.5">
                   <div className="flex items-start gap-2">
                     <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${style.iconCls}`} />
                     <div className="flex-1 min-w-0">
