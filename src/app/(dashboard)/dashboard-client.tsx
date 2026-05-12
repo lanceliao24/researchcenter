@@ -163,7 +163,7 @@ export function DashboardClient({
   )
 }
 
-function AISearchBar({ prompts }: { prompts: string[] }) {
+function AISearchBar({ }: { prompts: string[] }) {
   const router = useRouter()
   const [q, setQ] = useState('')
 
@@ -174,39 +174,24 @@ function AISearchBar({ prompts }: { prompts: string[] }) {
   }
 
   return (
-    <div className="w-full">
-      <form
-        onSubmit={(e) => { e.preventDefault(); submit() }}
-        className="flex items-center gap-2"
-      >
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="想追問什麼？例：本月計程車最常被抱怨..."
-            className="pl-8 h-9 text-sm"
-          />
-        </div>
-        <Button type="submit" disabled={!q.trim()} size="sm" className="h-9 px-3 text-xs">
-          <Sparkles className="h-3.5 w-3.5 mr-1" />
-          問 AI
-        </Button>
-      </form>
-      <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-        {prompts.slice(0, 3).map((p, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => submit(p)}
-            className="text-[11px] px-2 py-0.5 rounded-full border bg-background hover:bg-accent hover:border-primary/40 text-muted-foreground hover:text-foreground transition-colors truncate max-w-[180px]"
-            title={p}
-          >
-            {p}
-          </button>
-        ))}
+    <form
+      onSubmit={(e) => { e.preventDefault(); submit() }}
+      className="flex items-center gap-2 w-full"
+    >
+      <div className="relative flex-1">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <Input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="想追問什麼？例：本月計程車最常被抱怨..."
+          className="pl-8 h-9 text-sm"
+        />
       </div>
-    </div>
+      <Button type="submit" disabled={!q.trim()} size="sm" className="h-9 px-3 text-xs">
+        <Sparkles className="h-3.5 w-3.5 mr-1" />
+        問 AI
+      </Button>
+    </form>
   )
 }
 
