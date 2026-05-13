@@ -19,8 +19,12 @@ const BRAND_STOPWORDS = new Set([
 ])
 
 // Common Chinese stopwords that carry no discussion signal. Kept small —
-// jieba already drops single-char tokens via our length filter.
+// jieba already drops single-char tokens via our length filter, and the
+// differential scoring in aggregateWordsBySentiment handles neutral
+// nouns automatically (so don't blacklist words like 客服 / 平台 / 司機
+// here — let differential analysis decide whether they're signal).
 const STOPWORDS = new Set([
+  // Pronouns / function words
   '的', '了', '是', '在', '我', '你', '他', '她', '它', '我們', '你們', '他們',
   '也', '都', '就', '要', '會', '不', '沒', '沒有', '有', '可以', '可能', '需要',
   '一個', '一下', '一直', '一些', '這個', '那個', '這樣', '那樣', '這', '那',
@@ -39,6 +43,13 @@ const STOPWORDS = new Set([
   '從', '到', '對', '把', '被', '讓', '給', '為', '以',
   '上', '下', '前', '後', '左', '右', '中', '裡', '外',
   '吧', '啊', '呢', '嗎', '哦', '喔', '欸', '耶', '阿',
+  // Truly content-free tokens jieba sometimes emits
+  '的車', '底下', '半年', '完為止', '以前', '透過', '一樣',
+  '大家', '自己', '方式', '反應', '情報', '一直',
+  // Generic verbs that show up in any social post
+  '發問', '留言', '推薦', '領取', '還送', '連結', '推推', '發現',
+  // Generic descriptors
+  '多元', '名額', '有限',
 ])
 
 const CJK_RANGE = /[一-鿿]/
@@ -74,22 +85,52 @@ export interface SentimentWordCloud {
   negative: { word: string; count: number }[]
 }
 
+// Differential scoring: a word's place in the "negative" cloud should
+// reflect how characteristic it is of negative posts, not just how often
+// it shows up there. Generic nouns (客服, 平台, 司機, 車資 ...) appear in
+// every post regardless of sentiment, so raw frequency surfaces them as
+// "negative signal" when they're really just common. We weight by the
+// log-ratio of in-class vs out-of-class frequency so words that are
+// truly excess in one polarity rise.
+//
+//   score(word, neg) = negCount * log( (negCount + 1) / (posCount + 1) )
+//
+// - negCount = 0 → score = 0 (drops out)
+// - posCount = negCount → score = 0 (neutral, drops out)
+// - negCount >> posCount → score grows (true negative signal)
+// Same shape for positive, just swapping the counts.
 export function aggregateWordsBySentiment(posts: SocialPost[], topN = 30): SentimentWordCloud {
   const pos = new Map<string, number>()
   const neg = new Map<string, number>()
   for (const p of posts) {
-    if (!p.sentiment || (p.sentiment !== 'positive' && p.sentiment !== 'negative')) continue
+    if (!p.sentiment) continue
+    if (p.sentiment !== 'positive' && p.sentiment !== 'negative') continue
     const tokens = tokenizePost(p)
     const target = p.sentiment === 'positive' ? pos : neg
     for (const t of tokens) {
       target.set(t, (target.get(t) ?? 0) + 1)
     }
   }
-  function topList(m: Map<string, number>) {
-    return Array.from(m.entries())
-      .sort((a, b) => b[1] - a[1])
+
+  const allWords = new Set<string>([...pos.keys(), ...neg.keys()])
+
+  function rankFor(side: 'positive' | 'negative') {
+    const inMap = side === 'positive' ? pos : neg
+    const outMap = side === 'positive' ? neg : pos
+    const scored: { word: string; count: number; score: number }[] = []
+    for (const w of allWords) {
+      const inC = inMap.get(w) ?? 0
+      const outC = outMap.get(w) ?? 0
+      if (inC === 0) continue
+      const score = inC * Math.log((inC + 1) / (outC + 1))
+      if (score <= 0) continue
+      scored.push({ word: w, count: inC, score })
+    }
+    return scored
+      .sort((a, b) => b.score - a.score)
       .slice(0, topN)
-      .map(([word, count]) => ({ word, count }))
+      .map(({ word, count }) => ({ word, count }))
   }
-  return { positive: topList(pos), negative: topList(neg) }
+
+  return { positive: rankFor('positive'), negative: rankFor('negative') }
 }
