@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { RefreshCw, Loader2 } from 'lucide-react'
 import type { IssueTrendsSnapshot, ServiceTrends } from '@/lib/issue-trends-store'
 import type { CounterInsightsSnapshot, ServiceCounterInsights } from '@/lib/counter-insights-store'
-import { getServiceLabel } from '@/lib/issue-trends-store'
+import { getServiceLabel } from '@/lib/service-labels'
 import { ServiceTrendsBody } from './issue-trends'
 import { ServiceContradictionsBody } from './counter-insights'
 

@@ -47,21 +47,9 @@ export interface IssueTrendsSnapshot {
   byService: ServiceTrends[]
 }
 
-export const SERVICE_LABELS: Record<string, string> = {
-  taxi: '計程車',
-  rental: '共享汽車',
-  scooter: '共享機車',
-  designated_driver: '代駕',
-  shuttle: '機場接送',
-  station_rental: '站點租車',
-  charging: '充電',
-  chauffeured_car: '包車',
-  other: '其他',
-}
-
-export function getServiceLabel(service: string): string {
-  return SERVICE_LABELS[service] ?? service
-}
+// Re-exported for backward compatibility. Canonical definition lives in
+// service-labels.ts (client-safe — no fs import).
+export { SERVICE_LABELS, getServiceLabel } from './service-labels'
 
 export function detectServiceFromTitle(title: string): string {
   const lower = title.toLowerCase()

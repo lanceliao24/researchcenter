@@ -10,7 +10,12 @@ const jieba = Jieba.withDict(dict)
 const BRAND_STOPWORDS = new Set([
   'LINE', 'GO', 'TAXI', 'LINEGO', 'LINE GO', 'LINE TAXI', 'linego', 'line', 'go', 'taxi',
   '計程車', '共享機車', '共享汽車', '機場接送', '租車', '叫車',
+  '共享', '機車', '汽車', // brand components jieba splits out of 共享機車 / 共享汽車
   'Uber', 'uber', 'Yoxi', 'yoxi', '55688', 'WeMo', 'wemo', 'GoShare', 'goshare', 'iRent', 'irent',
+  // Platform names and web-content noise
+  'Threads', 'threads', 'Twitter', 'twitter', 'Facebook', 'facebook', 'FB', 'fb',
+  'Instagram', 'instagram', 'IG', 'ig', 'PTT', 'ptt', 'Dcard', 'dcard',
+  'Views', 'views', 'Likes', 'likes',
 ])
 
 // Common Chinese stopwords that carry no discussion signal. Kept small —
@@ -37,20 +42,19 @@ const STOPWORDS = new Set([
 ])
 
 const CJK_RANGE = /[一-鿿]/
-const PURE_ASCII = /^[A-Za-z0-9_\-\.]+$/
+const HAS_ALNUM = /[A-Za-z0-9]/
+const PURE_ALNUM_WORD = /^[A-Za-z0-9][A-Za-z0-9_\-]*$/
 
 function isMeaningful(word: string): boolean {
   if (!word || word.length < 2) return false
   const trimmed = word.trim()
-  if (!trimmed) return false
-  // Drop pure punctuation, whitespace, or single char anything
-  if (trimmed.length < 2) return false
+  if (!trimmed || trimmed.length < 2) return false
   if (BRAND_STOPWORDS.has(trimmed) || BRAND_STOPWORDS.has(trimmed.toLowerCase())) return false
   if (STOPWORDS.has(trimmed)) return false
-  // Keep if contains at least one CJK char, OR is a multi-char alphanumeric
-  // word that isn't pure punctuation
+  // Must contain at least one CJK character OR be a >=3-char alphanumeric
+  // word. This drops "...", "——", "?!", etc.
   if (CJK_RANGE.test(trimmed)) return true
-  if (PURE_ASCII.test(trimmed) && trimmed.length >= 3) return true
+  if (trimmed.length >= 3 && HAS_ALNUM.test(trimmed) && PURE_ALNUM_WORD.test(trimmed)) return true
   return false
 }
 
