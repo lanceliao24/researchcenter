@@ -7,8 +7,14 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { RefreshCw, Loader2 } from 'lucide-react'
 import type { IssueTrendsSnapshot, ServiceTrends } from '@/lib/issue-trends-store'
 import type { CounterInsightsSnapshot, ServiceCounterInsights } from '@/lib/counter-insights-store'
+import { getServiceLabel } from '@/lib/issue-trends-store'
 import { ServiceTrendsBody } from './issue-trends'
 import { ServiceContradictionsBody } from './counter-insights'
+
+// Always render these four services so the dashboard's service-health
+// cards can deep-link into a per-service block, even before analysis
+// has been generated for that service.
+const FEATURED_SERVICES = ['taxi', 'rental', 'scooter', 'shuttle']
 
 type Tab = 'trends' | 'contradictions'
 
@@ -25,9 +31,9 @@ function MergedServiceBlock({
   busy: Tab | null
   onRegenerate: (service: string, tab: Tab) => void
 }) {
-  const defaultTab: Tab = trends ? 'trends' : 'contradictions'
+  const defaultTab: Tab = trends || !contradictions ? 'trends' : 'contradictions'
   const [tab, setTab] = useState<Tab>(defaultTab)
-  const label = trends?.serviceLabel ?? contradictions?.serviceLabel ?? service
+  const label = trends?.serviceLabel ?? contradictions?.serviceLabel ?? getServiceLabel(service)
 
   return (
     <div id={`service-${service}`} className="border rounded-lg bg-card scroll-mt-20">
@@ -51,24 +57,24 @@ function MergedServiceBlock({
           variant="ghost"
           className="h-7 px-2 text-xs"
           onClick={() => onRegenerate(service, tab)}
-          disabled={busy !== null || (tab === 'trends' ? !trends : !contradictions)}
+          disabled={busy !== null}
         >
           {busy === tab ? (
             <Loader2 className="h-3 w-3 mr-1 animate-spin" />
           ) : (
             <RefreshCw className="h-3 w-3 mr-1" />
           )}
-          只重跑這個
+          {(tab === 'trends' ? !trends : !contradictions) ? '產生這個' : '只重跑這個'}
         </Button>
       </div>
 
       <div className="p-3 pb-0">
         <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
           <TabsList className="w-full">
-            <TabsTrigger value="trends" disabled={!trends}>
+            <TabsTrigger value="trends">
               跨問卷議題趨勢
             </TabsTrigger>
-            <TabsTrigger value="contradictions" disabled={!contradictions}>
+            <TabsTrigger value="contradictions">
               Promoter ↔ Detractor 矛盾
             </TabsTrigger>
           </TabsList>
@@ -77,11 +83,15 @@ function MergedServiceBlock({
 
       {tab === 'trends' && trends && <ServiceTrendsBody trends={trends} />}
       {tab === 'trends' && !trends && (
-        <p className="text-xs text-muted-foreground text-center py-6 px-3">此服務尚無議題趨勢分析</p>
+        <p className="text-xs text-muted-foreground text-center py-6 px-3">
+          此服務尚未產生議題趨勢分析，點右上「產生這個」啟動
+        </p>
       )}
       {tab === 'contradictions' && contradictions && <ServiceContradictionsBody data={contradictions} />}
       {tab === 'contradictions' && !contradictions && (
-        <p className="text-xs text-muted-foreground text-center py-6 px-3">此服務尚無矛盾分析</p>
+        <p className="text-xs text-muted-foreground text-center py-6 px-3">
+          此服務尚未產生矛盾分析，點右上「產生這個」啟動
+        </p>
       )}
     </div>
   )
@@ -155,9 +165,11 @@ export function MergedServicePanels({ refreshKey = 0 }: { refreshKey?: number } 
     return <p className="text-xs text-muted-foreground text-center py-6">載入服務分析中...</p>
   }
 
-  // Build union of services from both snapshots, ordered by trendsSnap first.
-  const services: { id: string }[] = []
-  const seen = new Set<string>()
+  // Featured services always render (so deep links from the dashboard
+  // resolve to a block even when no analysis exists yet). Other
+  // services from either snapshot append after the fixed four.
+  const services: { id: string }[] = FEATURED_SERVICES.map(id => ({ id }))
+  const seen = new Set(FEATURED_SERVICES)
   if (trendsSnap) {
     for (const s of trendsSnap.byService) {
       if (!seen.has(s.service)) { services.push({ id: s.service }); seen.add(s.service) }
@@ -167,14 +179,6 @@ export function MergedServicePanels({ refreshKey = 0 }: { refreshKey?: number } 
     for (const s of counterSnap.byService) {
       if (!seen.has(s.service)) { services.push({ id: s.service }); seen.add(s.service) }
     }
-  }
-
-  if (services.length === 0) {
-    return (
-      <p className="text-xs text-muted-foreground text-center py-6">
-        尚未產生任何服務分析，使用上方卡片啟動「產生議題趨勢」或「產生矛盾分析」
-      </p>
-    )
   }
 
   return (
