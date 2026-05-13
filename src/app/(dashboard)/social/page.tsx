@@ -201,20 +201,17 @@ export default function SocialPage() {
     return { total, pos, neg, neu }
   }, [filteredPosts])
 
-  const wordStats = useMemo(() => {
-    const pos = new Map<string, number>()
-    const neg = new Map<string, number>()
-    for (const p of filteredPosts) {
-      const kw = p.keyword?.trim()
-      if (!kw) continue
-      if (p.sentiment === 'positive') pos.set(kw, (pos.get(kw) ?? 0) + 1)
-      else if (p.sentiment === 'negative') neg.set(kw, (neg.get(kw) ?? 0) + 1)
-    }
-    return {
-      positive: Array.from(pos.entries()).map(([word, count]) => ({ word, count })),
-      negative: Array.from(neg.entries()).map(([word, count]) => ({ word, count })),
-    }
-  }, [filteredPosts])
+  const [wordStats, setWordStats] = useState<{
+    positive: { word: string; count: number }[]
+    negative: { word: string; count: number }[]
+  }>({ positive: [], negative: [] })
+
+  useEffect(() => {
+    fetch('/api/social/word-cloud')
+      .then(r => r.json())
+      .then(d => setWordStats({ positive: d.positive ?? [], negative: d.negative ?? [] }))
+      .catch(() => {})
+  }, [lastFetchedAt])
 
   function clearFilters() {
     setSearch('')
@@ -468,7 +465,7 @@ export default function SocialPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">正向討論詞雲</CardTitle>
           </CardHeader>
           <CardContent>
-            <WordCloud words={wordStats.positive} tone="positive" emptyLabel="目前篩選結果無正向討論" />
+            <WordCloud words={wordStats.positive} tone="positive" emptyLabel="尚無正向討論資料" />
           </CardContent>
         </Card>
         <Card>
@@ -476,7 +473,7 @@ export default function SocialPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">負向討論詞雲</CardTitle>
           </CardHeader>
           <CardContent>
-            <WordCloud words={wordStats.negative} tone="negative" emptyLabel="目前篩選結果無負向討論" />
+            <WordCloud words={wordStats.negative} tone="negative" emptyLabel="尚無負向討論資料" />
           </CardContent>
         </Card>
       </div>
