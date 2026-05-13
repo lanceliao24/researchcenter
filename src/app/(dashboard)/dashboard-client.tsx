@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils'
 import type { SocialPost } from '@/types'
 import type { PrAlert, AlertLevel, SocialCategory } from '@/lib/mock-data'
 import { socialCategories } from '@/lib/mock-data'
+import { getServiceLabel } from '@/lib/service-labels'
 import { QUICK_ASK_PROMPTS } from '@/lib/quick-asks'
 import { type MonthlyOverview } from '@/components/surveys/monthly-overview'
 import { InsightsOverview } from '@/components/insights/insights-overview'
@@ -164,7 +165,7 @@ export function DashboardClient({
             <div className="flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-visible md:border-r md:pr-3">
               {(['all', ...socialCategories] as const).map(cat => {
                 const isActive = categoryFilter === cat
-                const label = cat === 'all' ? '全部' : cat
+                const label = cat === 'all' ? '全部' : getServiceLabel(cat)
                 const count = categoryCounts[cat] ?? 0
                 return (
                   <button
@@ -212,7 +213,7 @@ export function DashboardClient({
                 ))}
                 {pagedPosts.length === 0 && (
                   <p className="text-xs text-muted-foreground py-4 text-center">
-                    {filteredPosts.length === 0 ? `沒有「${categoryFilter}」分類的貼文` : '沒有貼文'}
+                    {filteredPosts.length === 0 ? `沒有「${categoryFilter === 'all' ? '全部' : getServiceLabel(categoryFilter)}」分類的貼文` : '沒有貼文'}
                   </p>
                 )}
               </div>
@@ -397,7 +398,7 @@ function AlertRow({ alert }: { alert: PrAlert }) {
               {s.label}
             </Badge>
             <Badge variant="secondary" className="text-[10px] py-0">
-              {alert.category}
+              {getServiceLabel(alert.category)}
             </Badge>
             <span className="text-xs text-muted-foreground">{alert.source}</span>
           </div>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isLocalMode } from '@/lib/local-mode'
 import { chatLite } from '@/lib/gemini'
 import { getQuotaStatus, incrementQuota } from '@/lib/quota'
+import { getServiceLabel } from '@/lib/service-labels'
 
 interface Recommendation {
   id: number
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
   })
 
   const catalogText = catalog
-    .map(c => `- id=${c.id} | 分類：${c.category} | 標籤：${(c.tags as string[]).join('、') || '無'} | ${c.title}${c.summary ? `\n  摘要：${c.summary}` : ''}`)
+    .map(c => `- id=${c.id} | 分類：${getServiceLabel(c.category as string)} | 標籤：${(c.tags as string[]).join('、') || '無'} | ${c.title}${c.summary ? `\n  摘要：${c.summary}` : ''}`)
     .join('\n')
 
   const userPrompt = `使用者需求：${query}

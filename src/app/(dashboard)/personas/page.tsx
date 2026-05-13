@@ -15,6 +15,7 @@ import {
 import { Loader2, Sparkles, Trash2, UserRound, Quote, FileText, RefreshCw, MessageCircle, Send, RotateCcw, User, Users, X, CheckSquare, Square, ImagePlus, Scale, ClipboardList } from 'lucide-react'
 import type { ABTestResponse, ABTestSummary, Document, Persona, PersonaChatMessage, PersonaCategory, PersonaSurveyAnswer, PersonaSurveyFillRun, PersonaSurveyQuestionSummary, PersonaSurveyResponse, SurveyQuestion, SurveyQuestionType } from '@/types'
 import { PERSONA_CATEGORIES } from '@/types'
+import { getServiceLabel } from '@/lib/service-labels'
 import { useElapsed } from '@/lib/useElapsed'
 
 interface GroupMessage {
@@ -261,7 +262,7 @@ export default function PersonasPage() {
               >
                 <option value="auto">自動偵測</option>
                 {PERSONA_CATEGORIES.map(c => (
-                  <option key={c} value={c}>{c}</option>
+                  <option key={c} value={c}>{getServiceLabel(c)}</option>
                 ))}
               </select>
             </div>
@@ -475,7 +476,7 @@ export default function PersonasPage() {
           {PERSONA_CATEGORIES.map(c => (
             <CategoryTab
               key={c}
-              label={c}
+              label={getServiceLabel(c)}
               count={categoryCounts[c] ?? 0}
               active={categoryFilter === c}
               onClick={() => setCategoryFilter(c)}
@@ -498,7 +499,7 @@ export default function PersonasPage() {
           <Card>
             <CardContent className="py-12 text-center">
               <p className="text-sm text-muted-foreground">
-                「{categoryFilter}」分類底下還沒有 persona
+                「{categoryFilter === 'all' ? '全部' : getServiceLabel(categoryFilter)}」分類底下還沒有 persona
               </p>
             </CardContent>
           </Card>
@@ -639,7 +640,7 @@ function PersonaCard({
         <CardContent className="space-y-3">
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-[10px]">
-              {persona.category}
+              {getServiceLabel(persona.category)}
             </Badge>
             <span className="text-[10px] text-muted-foreground">{persona.location}</span>
           </div>
@@ -1272,7 +1273,7 @@ function GroupChatDialog({
                       {p.name.slice(0, 1)}
                     </span>
                     <span>{p.name}</span>
-                    <span className="text-muted-foreground">· {p.category}</span>
+                    <span className="text-muted-foreground">· {getServiceLabel(p.category)}</span>
                   </div>
                 ))}
               </div>
@@ -1575,7 +1576,7 @@ function ABTestDialog({
                   {p.name.slice(0, 1)}
                 </span>
                 <span>{p.name}</span>
-                <span className="text-muted-foreground">· {p.category}</span>
+                <span className="text-muted-foreground">· {getServiceLabel(p.category)}</span>
               </div>
             ))}
           </div>
@@ -2181,7 +2182,7 @@ function SurveyFillDialog({
                   {p.name.slice(0, 1)}
                 </span>
                 <span>{p.name}</span>
-                <span className="text-muted-foreground">· {p.category}</span>
+                <span className="text-muted-foreground">· {getServiceLabel(p.category)}</span>
               </div>
             ))}
           </div>

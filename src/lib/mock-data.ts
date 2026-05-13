@@ -15,9 +15,11 @@ export const mockKeywords: Keyword[] = [
   { id: 4, keyword: 'LINE TAXI', is_active: true, created_at: '2026-04-01T00:00:00Z' },
 ]
 
-export type SocialCategory = '計程車' | '共享汽車' | '共享機車' | '機場接送' | '司機端'
+// Stable English keys — display via getServiceLabel(key) from
+// @/lib/service-labels.
+export type SocialCategory = 'taxi' | 'rental' | 'scooter' | 'shuttle' | 'driver'
 
-export const socialCategories: SocialCategory[] = ['計程車', '共享汽車', '共享機車', '機場接送', '司機端']
+export const socialCategories: SocialCategory[] = ['taxi', 'rental', 'scooter', 'shuttle', 'driver']
 
 // category mapping for each post
 export const postCategoryMap: Record<number, SocialCategory> = {}
@@ -57,9 +59,9 @@ export const mockSocialPosts: SocialPost[] = [
 
 // Build category map
 mockSocialPosts.forEach(post => {
-  if (post.id <= 10) postCategoryMap[post.id] = '共享汽車'
-  else if (post.id <= 19) postCategoryMap[post.id] = '計程車'
-  else postCategoryMap[post.id] = '共享機車'
+  if (post.id <= 10) postCategoryMap[post.id] = 'rental'
+  else if (post.id <= 19) postCategoryMap[post.id] = 'taxi'
+  else postCategoryMap[post.id] = 'scooter'
 })
 
 export const mockDocuments: Document[] = [
@@ -118,7 +120,7 @@ export const mockPrAlerts: PrAlert[] = [
     title: 'LINE TAXI 收費爭議擴散中',
     detail: '「6公里524元」Dcard 原文 12 小時內被轉發到 PTT、Threads、Mobile01，累積 1,280 則討論，負面聲量 +312%',
     source: 'Dcard / PTT / Threads',
-    category: '計程車',
+    category: 'taxi',
     trigger: '負面聲量 24h 內 +300%',
     occurred_at: '2026-04-20T18:00:00Z',
   },
@@ -128,7 +130,7 @@ export const mockPrAlerts: PrAlert[] = [
     title: '租車還車卡關客訴增加',
     detail: '近 7 天出現 4 則關於「還車 GPS 卡住、客服不退費只給優惠券」相關抱怨，皆來自台北市用戶',
     source: 'Dcard / PTT',
-    category: '共享汽車',
+    category: 'rental',
     trigger: '相同關鍵詞 7 天內出現 ≥ 3 次',
     occurred_at: '2026-04-19T09:00:00Z',
   },

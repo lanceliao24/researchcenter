@@ -1,6 +1,6 @@
 import JSZip from 'jszip'
 import { chatLite, wrapUntrusted } from './gemini'
-import { PERSONA_CATEGORIES, type PersonaCategory } from '@/types'
+import type { PersonaCategory } from '@/types'
 
 export interface PptxExtract {
   slides: string[]
@@ -56,9 +56,15 @@ function parseEnrichJson(raw: string): ReportEnrichment {
   if (start < 0 || end < 0) throw new Error('AI 回傳非 JSON')
   const obj = JSON.parse(cleaned.slice(start, end + 1))
 
-  const category: PersonaCategory = PERSONA_CATEGORIES.includes(obj.category)
-    ? obj.category
-    : '其他'
+  // Gemini returns the Chinese label; map back to the stable English key.
+  const labelToKey: Record<string, PersonaCategory> = {
+    '共享汽車': 'rental',
+    '租車': 'rental',
+    '計程車': 'taxi',
+    '共享機車': 'scooter',
+    '其他': 'other',
+  }
+  const category: PersonaCategory = labelToKey[String(obj.category).trim()] ?? 'other'
   const tags: string[] = Array.isArray(obj.tags)
     ? obj.tags.map((t: unknown) => String(t).trim()).filter(Boolean).slice(0, 5)
     : []

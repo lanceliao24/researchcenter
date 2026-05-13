@@ -33,6 +33,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { PERSONA_CATEGORIES, type Document, type PersonaCategory } from '@/types'
+import { getServiceLabel } from '@/lib/service-labels'
 
 interface ReportListProps {
   documents: Document[]
@@ -62,7 +63,7 @@ type CategoryFilter = 'all' | PersonaCategory
 
 const CATEGORY_FILTERS: { value: CategoryFilter; label: string }[] = [
   { value: 'all', label: '全部' },
-  ...PERSONA_CATEGORIES.map(c => ({ value: c, label: c })),
+  ...PERSONA_CATEGORIES.map(c => ({ value: c, label: getServiceLabel(c) })),
 ]
 
 function getMeta(doc: Document): ReportMeta {
@@ -338,7 +339,7 @@ function AiRecommendBlock({
                     <span className="text-sm font-medium truncate">{r.title}</span>
                     {r.category && r.category !== '未分類' && (
                       <Badge variant="secondary" className="text-[10px]">
-                        {r.category}
+                        {getServiceLabel(r.category as string)}
                       </Badge>
                     )}
                   </div>
@@ -404,7 +405,7 @@ function ReportCard({
               <div className="flex items-center gap-1.5 flex-wrap mt-2">
                 {meta.category && (
                   <Badge variant="default" className="text-[10px]">
-                    {meta.category}
+                    {getServiceLabel(meta.category as string)}
                   </Badge>
                 )}
                 {(meta.tags ?? []).map(t => (
@@ -484,7 +485,7 @@ function MetaEditor({
   const [category, setCategory] = useState<PersonaCategory>(
     (meta.category as PersonaCategory) && PERSONA_CATEGORIES.includes(meta.category as PersonaCategory)
       ? (meta.category as PersonaCategory)
-      : '其他',
+      : 'other',
   )
   const [tagsInput, setTagsInput] = useState((meta.tags ?? []).join(', '))
   const [saving, setSaving] = useState(false)
@@ -529,7 +530,7 @@ function MetaEditor({
               onClick={() => setCategory(c)}
               className="h-7 text-xs"
             >
-              {c}
+              {getServiceLabel(c)}
             </Button>
           ))}
         </div>

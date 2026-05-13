@@ -66,9 +66,11 @@ export interface ChatMessage {
   }[]
 }
 
-export type PersonaCategory = '共享汽車' | '計程車' | '共享機車' | '其他'
+// Stable English keys. Display labels come from SERVICE_LABELS — don't
+// embed Chinese strings as type literals.
+export type PersonaCategory = 'rental' | 'taxi' | 'scooter' | 'other'
 
-export const PERSONA_CATEGORIES: PersonaCategory[] = ['共享汽車', '計程車', '共享機車', '其他']
+export const PERSONA_CATEGORIES: PersonaCategory[] = ['rental', 'taxi', 'scooter', 'other']
 
 export const SURVEY_SERVICE_KEYS = [
   'taxi',
@@ -84,20 +86,17 @@ export const SURVEY_SERVICE_KEYS = [
 
 export type SurveyServiceKey = (typeof SURVEY_SERVICE_KEYS)[number]
 
-export const SURVEY_SERVICE_LABELS: Record<SurveyServiceKey, string> = {
-  taxi: '計程車',
-  rental: '共享汽車',
-  station_rental: '門市日租',
-  shuttle: '機場接送',
-  designated_driver: '代駕',
-  group: '揪團',
-  chauffeured_car: '包車',
-  scooter: '共享機車',
-  charging: '充電站',
-}
+// Display labels live in src/lib/service-labels.ts as the single source
+// of truth. Re-export here so existing imports keep working.
+import { SERVICE_LABELS as _CANONICAL_LABELS, getServiceLabel as _getLabel } from '@/lib/service-labels'
+
+export const SURVEY_SERVICE_LABELS: Record<SurveyServiceKey, string> = SURVEY_SERVICE_KEYS.reduce(
+  (acc, k) => { acc[k] = (_CANONICAL_LABELS as Record<string, string>)[k]; return acc },
+  {} as Record<SurveyServiceKey, string>,
+)
 
 export function surveyServiceLabel(key: string): string {
-  return (SURVEY_SERVICE_LABELS as Record<string, string>)[key] ?? key
+  return _getLabel(key)
 }
 
 export interface SurveyMonthlyRawRow {

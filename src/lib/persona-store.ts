@@ -16,10 +16,19 @@ function seed(): PersonaStore {
 
 export function inferCategoryFromFile(file: string): PersonaCategory {
   const lower = file.toLowerCase()
-  if (lower.includes('rental') || lower.includes('rent') || lower.includes('租車') || lower.includes('共享汽車')) return '共享汽車'
-  if (lower.includes('taxi') || lower.includes('計程')) return '計程車'
-  if (lower.includes('scooter') || lower.includes('share') || lower.includes('機車')) return '共享機車'
-  return '其他'
+  if (lower.includes('rental') || lower.includes('rent') || lower.includes('租車') || lower.includes('共享汽車')) return 'rental'
+  if (lower.includes('taxi') || lower.includes('計程')) return 'taxi'
+  if (lower.includes('scooter') || lower.includes('share') || lower.includes('機車')) return 'scooter'
+  return 'other'
+}
+
+// Legacy Chinese category values stored before the enum→key refactor.
+const LEGACY_CATEGORY_MAP: Record<string, PersonaCategory> = {
+  '租車': 'rental',
+  '共享汽車': 'rental',
+  '計程車': 'taxi',
+  '共享機車': 'scooter',
+  '其他': 'other',
 }
 
 function migrate(store: PersonaStore): { store: PersonaStore; changed: boolean } {
@@ -28,10 +37,11 @@ function migrate(store: PersonaStore): { store: PersonaStore; changed: boolean }
     if (!p.category) {
       p.category = inferCategoryFromFile(p.source?.file ?? '')
       changed = true
+      continue
     }
-    // Legacy '租車' label → canonical '共享汽車'
-    if ((p.category as string) === '租車') {
-      p.category = '共享汽車'
+    const mapped = LEGACY_CATEGORY_MAP[p.category as unknown as string]
+    if (mapped && p.category !== mapped) {
+      p.category = mapped
       changed = true
     }
   }

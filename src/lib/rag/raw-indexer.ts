@@ -9,10 +9,10 @@ import type { Document, PersonaCategory } from '@/types'
 
 function inferCategory(title: string, filename?: string): PersonaCategory {
   const text = (title + ' ' + (filename ?? '')).toLowerCase()
-  if (/rent|租車|共享汽車/i.test(text)) return '共享汽車'
-  if (/taxi|cab|計程車|叫車/i.test(text)) return '計程車'
-  if (/scooter|gogoro|wemo|goshare|moto|機車/i.test(text)) return '共享機車'
-  return '其他'
+  if (/rent|租車|共享汽車/i.test(text)) return 'rental'
+  if (/taxi|cab|計程車|叫車/i.test(text)) return 'taxi'
+  if (/scooter|gogoro|wemo|goshare|moto|機車/i.test(text)) return 'scooter'
+  return 'other'
 }
 
 function getDocumentCategory(doc: Document): PersonaCategory {

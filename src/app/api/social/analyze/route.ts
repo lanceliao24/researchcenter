@@ -2,16 +2,17 @@ import { NextResponse } from 'next/server'
 import { chat } from '@/lib/gemini'
 import { getPosts, getAnalysis, saveAnalysis, assignSentiments } from '@/lib/social-store'
 import { checkQuota, incrementQuota, getQuotaStatus } from '@/lib/quota'
+import { getServiceLabel } from '@/lib/service-labels'
 import type { SocialPost } from '@/types'
 
-type Category = '共享汽車' | '計程車' | '共享機車' | 'LINE GO 總覽'
+type Category = 'rental' | 'taxi' | 'scooter' | 'overview'
 
 function classifyCategory(post: SocialPost): Category {
   const text = `${post.title ?? ''} ${post.description ?? ''} ${post.keyword ?? ''}`.toLowerCase()
-  if (/共享汽車|租車|自駕|hire|rent\s*a\s*car|租個車/.test(text)) return '共享汽車'
-  if (/計程車|taxi|叫車|司機|uber|yoxi|55688/.test(text)) return '計程車'
-  if (/機車|wemo|goshare|共享機車|電動機車/.test(text)) return '共享機車'
-  return 'LINE GO 總覽'
+  if (/共享汽車|租車|自駕|hire|rent\s*a\s*car|租個車/.test(text)) return 'rental'
+  if (/計程車|taxi|叫車|司機|uber|yoxi|55688/.test(text)) return 'taxi'
+  if (/機車|wemo|goshare|共享機車|電動機車/.test(text)) return 'scooter'
+  return 'overview'
 }
 
 interface AnalyzeResult {
@@ -25,8 +26,9 @@ function buildPrompt(posts: SocialPost[], category: Category): string {
     .slice(0, 60)
     .map(p => `#${p.id} [${p.platform}] ${p.title ?? ''} | ${p.description ?? ''}`)
     .join('\n')
+  const label = getServiceLabel(category)
 
-  return `以下是關於「${category}」分類的社群討論貼文，請做兩件事：
+  return `以下是關於「${label}」分類的社群討論貼文，請做兩件事：
 
 1. 為每篇貼文判斷情緒（positive / neutral / negative）
 2. 從所有貼文的標題與描述中，抽取最常出現的「正向評價詞」與「負向評價詞」（中文短詞，2~6 字，聚焦服務體驗與感受，例如「乾淨」「便宜」「客服爛」「加價不實」）
@@ -80,23 +82,23 @@ export async function POST() {
     return NextResponse.json({ error: '尚無社群貼文，請先抓取' }, { status: 400 })
   }
 
-  const categories: Category[] = ['共享汽車', '計程車', '共享機車', 'LINE GO 總覽']
+  const categories: Category[] = ['rental', 'taxi', 'scooter', 'overview']
   const postsByCategory = new Map<Category, SocialPost[]>()
   for (const c of categories) postsByCategory.set(c, [])
   for (const p of allPosts) postsByCategory.get(classifyCategory(p))!.push(p)
 
   const results: Record<Category, AnalyzeResult> = {
-    '共享汽車': { positive: [], negative: [], sentimentByPostId: {} },
-    '計程車': { positive: [], negative: [], sentimentByPostId: {} },
-    '共享機車': { positive: [], negative: [], sentimentByPostId: {} },
-    'LINE GO 總覽': { positive: [], negative: [], sentimentByPostId: {} },
+    rental: { positive: [], negative: [], sentimentByPostId: {} },
+    taxi: { positive: [], negative: [], sentimentByPostId: {} },
+    scooter: { positive: [], negative: [], sentimentByPostId: {} },
+    overview: { positive: [], negative: [], sentimentByPostId: {} },
   }
 
   const mergedSentiments: Record<number, 'positive' | 'neutral' | 'negative'> = {}
   const errors: string[] = []
 
   for (const cat of categories) {
-    const cPosts = cat === 'LINE GO 總覽' ? allPosts : postsByCategory.get(cat)!
+    const cPosts = cat === 'overview' ? allPosts : postsByCategory.get(cat)!
     if (!cPosts.length) continue
 
     try {
@@ -111,7 +113,7 @@ export async function POST() {
       }
       results[cat] = parsed
 
-      if (cat !== 'LINE GO 總覽' && parsed.sentimentByPostId) {
+      if (cat !== 'overview' && parsed.sentimentByPostId) {
         for (const [idStr, sent] of Object.entries(parsed.sentimentByPostId)) {
           mergedSentiments[Number(idStr)] = sent
         }

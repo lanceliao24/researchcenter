@@ -12,7 +12,7 @@ const DEFAULT_KEYWORDS = [
   'LINE TAXI',
 ]
 
-export type AnalysisCategory = '共享汽車' | '計程車' | '共享機車' | 'LINE GO 總覽'
+export type AnalysisCategory = 'rental' | 'taxi' | 'scooter' | 'overview'
 
 export interface AnalysisCategoryResult {
   positive: { word: string; count: number }[]
