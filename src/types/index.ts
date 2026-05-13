@@ -66,9 +66,9 @@ export interface ChatMessage {
   }[]
 }
 
-export type PersonaCategory = '租車' | '計程車' | '共享機車' | '其他'
+export type PersonaCategory = '共享汽車' | '計程車' | '共享機車' | '其他'
 
-export const PERSONA_CATEGORIES: PersonaCategory[] = ['租車', '計程車', '共享機車', '其他']
+export const PERSONA_CATEGORIES: PersonaCategory[] = ['共享汽車', '計程車', '共享機車', '其他']
 
 export const SURVEY_SERVICE_KEYS = [
   'taxi',
@@ -86,14 +86,14 @@ export type SurveyServiceKey = (typeof SURVEY_SERVICE_KEYS)[number]
 
 export const SURVEY_SERVICE_LABELS: Record<SurveyServiceKey, string> = {
   taxi: '計程車',
-  rental: '共享',
-  station_rental: '日租',
+  rental: '共享汽車',
+  station_rental: '門市日租',
   shuttle: '機場接送',
   designated_driver: '代駕',
   group: '揪團',
   chauffeured_car: '包車',
   scooter: '共享機車',
-  charging: '充電',
+  charging: '充電站',
 }
 
 export function surveyServiceLabel(key: string): string {

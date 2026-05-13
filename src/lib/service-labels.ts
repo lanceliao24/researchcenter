@@ -9,8 +9,8 @@ export const SERVICE_LABELS: Record<string, string> = {
   scooter: '共享機車',
   designated_driver: '代駕',
   shuttle: '機場接送',
-  station_rental: '站點租車',
-  charging: '充電',
+  station_rental: '門市日租',
+  charging: '充電站',
   chauffeured_car: '包車',
   other: '其他',
 }

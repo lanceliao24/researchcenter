@@ -6,13 +6,13 @@ import { storePath } from './paths'
 const STORE_PATH = storePath('social-store.json')
 
 const DEFAULT_KEYWORDS = [
-  'LINE GO 租車',
+  'LINE GO 共享汽車',
   'LINE GO 計程車',
   'LINE GO 共享機車',
   'LINE TAXI',
 ]
 
-export type AnalysisCategory = '租車' | '計程車' | '共享機車' | 'LINE GO 總覽'
+export type AnalysisCategory = '共享汽車' | '計程車' | '共享機車' | 'LINE GO 總覽'
 
 export interface AnalysisCategoryResult {
   positive: { word: string; count: number }[]

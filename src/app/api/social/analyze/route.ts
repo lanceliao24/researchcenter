@@ -4,11 +4,11 @@ import { getPosts, getAnalysis, saveAnalysis, assignSentiments } from '@/lib/soc
 import { checkQuota, incrementQuota, getQuotaStatus } from '@/lib/quota'
 import type { SocialPost } from '@/types'
 
-type Category = '租車' | '計程車' | '共享機車' | 'LINE GO 總覽'
+type Category = '共享汽車' | '計程車' | '共享機車' | 'LINE GO 總覽'
 
 function classifyCategory(post: SocialPost): Category {
   const text = `${post.title ?? ''} ${post.description ?? ''} ${post.keyword ?? ''}`.toLowerCase()
-  if (/租車|自駕|hire|rent\s*a\s*car|租個車/.test(text)) return '租車'
+  if (/共享汽車|租車|自駕|hire|rent\s*a\s*car|租個車/.test(text)) return '共享汽車'
   if (/計程車|taxi|叫車|司機|uber|yoxi|55688/.test(text)) return '計程車'
   if (/機車|wemo|goshare|共享機車|電動機車/.test(text)) return '共享機車'
   return 'LINE GO 總覽'
@@ -80,13 +80,13 @@ export async function POST() {
     return NextResponse.json({ error: '尚無社群貼文，請先抓取' }, { status: 400 })
   }
 
-  const categories: Category[] = ['租車', '計程車', '共享機車', 'LINE GO 總覽']
+  const categories: Category[] = ['共享汽車', '計程車', '共享機車', 'LINE GO 總覽']
   const postsByCategory = new Map<Category, SocialPost[]>()
   for (const c of categories) postsByCategory.set(c, [])
   for (const p of allPosts) postsByCategory.get(classifyCategory(p))!.push(p)
 
   const results: Record<Category, AnalyzeResult> = {
-    '租車': { positive: [], negative: [], sentimentByPostId: {} },
+    '共享汽車': { positive: [], negative: [], sentimentByPostId: {} },
     '計程車': { positive: [], negative: [], sentimentByPostId: {} },
     '共享機車': { positive: [], negative: [], sentimentByPostId: {} },
     'LINE GO 總覽': { positive: [], negative: [], sentimentByPostId: {} },

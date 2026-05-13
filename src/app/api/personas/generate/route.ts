@@ -9,7 +9,7 @@ import { requireEditor } from '@/lib/auth'
 import { logAudit } from '@/lib/audit-log'
 import type { Persona, PersonaCategory } from '@/types'
 
-const VALID_CATEGORIES: PersonaCategory[] = ['租車', '計程車', '共享機車', '其他']
+const VALID_CATEGORIES: PersonaCategory[] = ['共享汽車', '計程車', '共享機車', '其他']
 
 const SYSTEM_PROMPT = `你是一位 UX 研究員，擅長從使用者訪談逐字稿中萃取 persona。
 根據提供的逐字稿片段（來自同一位受訪者），產出一份結構化 persona，用於後續產品測試。
