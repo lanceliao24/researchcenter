@@ -30,7 +30,7 @@ function MergedServiceBlock({
   const label = trends?.serviceLabel ?? contradictions?.serviceLabel ?? service
 
   return (
-    <div className="border rounded-lg bg-card">
+    <div id={`service-${service}`} className="border rounded-lg bg-card scroll-mt-20">
       <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30 gap-2 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-medium text-sm">{label}</span>
@@ -113,6 +113,18 @@ export function MergedServicePanels({ refreshKey = 0 }: { refreshKey?: number } 
     load()
     return () => { cancelled = true }
   }, [refreshKey])
+
+  // Browser's auto hash-scroll fires before our async data renders the
+  // anchor target. After the first paint with data, re-resolve the hash
+  // and scroll the matching block into view.
+  useEffect(() => {
+    if (loading) return
+    if (typeof window === 'undefined') return
+    const hash = window.location.hash
+    if (!hash || !hash.startsWith('#service-')) return
+    const el = document.getElementById(hash.slice(1))
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [loading])
 
   async function regenerate(service: string, tab: Tab) {
     setBusy({ service, tab })

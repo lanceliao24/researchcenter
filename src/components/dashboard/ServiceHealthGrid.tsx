@@ -35,7 +35,7 @@ function ServiceHealthCard({ data }: { data: ServiceHealth }) {
 
   return (
     <Link
-      href="/surveys"
+      href={`/surveys#service-${data.service}`}
       className="group block"
     >
       <Card className="h-full transition-colors hover:border-primary/40">
