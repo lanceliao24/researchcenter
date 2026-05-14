@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { isLocalMode } from '@/lib/local-mode'
 import { validateUploadFile, type UploadType } from '@/lib/upload-validation'
-import { requireEditor, type Session } from '@/lib/auth'
-import { logAudit } from '@/lib/audit-log'
 
 function sha256Hex(buf: Buffer): string {
   return crypto.createHash('sha256').update(buf).digest('hex')
@@ -12,8 +10,6 @@ function sha256Hex(buf: Buffer): string {
 const VALID_TYPES: UploadType[] = ['report', 'survey', 'transcript']
 
 export async function POST(request: NextRequest) {
-  const auth = await requireEditor(request)
-  if (auth instanceof NextResponse) return auth
   const formData = await request.formData()
   const files = formData.getAll('files') as File[]
   const type = formData.get('type') as string
@@ -27,13 +23,13 @@ export async function POST(request: NextRequest) {
   }
 
   if (isLocalMode()) {
-    return handleLocalUpload(files, type as UploadType, auth)
+    return handleLocalUpload(files, type as UploadType)
   }
 
   return handleSupabaseUpload(request, files, type)
 }
 
-async function handleLocalUpload(files: File[], type: UploadType, session: Session) {
+async function handleLocalUpload(files: File[], type: UploadType) {
   const { addLocalDocument, saveUploadedFile, findDocumentByHash } = await import('@/lib/local-store')
   const results: Array<unknown> = []
   const rejected: Array<{ name: string; reason: string }> = []
@@ -103,14 +99,6 @@ async function handleLocalUpload(files: File[], type: UploadType, session: Sessi
     })
 
     results.push(doc)
-  }
-
-  if (results.length > 0) {
-    logAudit(session, 'upload.create', null, {
-      type,
-      count: results.length,
-      titles: results.slice(0, 10).map(r => (r as { title?: string })?.title),
-    })
   }
 
   const status = results.length === 0 && rejected.length > 0 ? 400 : 200

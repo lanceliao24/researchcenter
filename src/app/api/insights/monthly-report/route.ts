@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { chatPro } from '@/lib/gemini'
-import { checkBoth, incrementBoth, quotaDeniedMessage } from '@/lib/quota'
-import { requireEditor } from '@/lib/auth'
+import { checkQuota, incrementQuota, quotaDeniedMessage } from '@/lib/quota'
 import { isLocalMode } from '@/lib/local-mode'
 import {
   getMonthlyOverview,
@@ -151,10 +150,7 @@ export async function GET() {
   return NextResponse.json({ snapshot: readReport() })
 }
 
-export async function POST(req: NextRequest) {
-  const auth = await requireEditor(req)
-  if (auth instanceof NextResponse) return auth
-
+export async function POST(_req: NextRequest) {
   if (!isLocalMode()) {
     return NextResponse.json({ error: 'production not implemented' }, { status: 501 })
   }
@@ -168,9 +164,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '無法取得整體指標' }, { status: 400 })
   }
 
-  const q = checkBoth(auth, 'gemini_chat_pro')
+  const q = checkQuota('gemini_chat_pro')
   if (!q.ok) {
-    return NextResponse.json({ error: quotaDeniedMessage(q.reason) }, { status: 429 })
+    return NextResponse.json({ error: quotaDeniedMessage('gemini_chat_pro', q.used, q.limit) }, { status: 429 })
   }
 
   const userMsg = buildUserMessage(month)
@@ -178,7 +174,7 @@ export async function POST(req: NextRequest) {
   try {
     const raw = await chatPro(SYSTEM_PROMPT, userMsg)
     parsed = parseReport(raw)
-    incrementBoth(auth, 'gemini_chat_pro')
+    incrementQuota('gemini_chat_pro')
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 })
   }

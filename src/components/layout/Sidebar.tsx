@@ -13,14 +13,12 @@ import {
   BookOpen,
   Settings,
   Users,
-  History,
 } from 'lucide-react'
 
 interface NavItem {
   href: string
   label: string
   icon: React.ComponentType<{ className?: string }>
-  editorOnly?: boolean
 }
 interface NavSection {
   title: string
@@ -36,7 +34,7 @@ const navSections: NavSection[] = [
     title: '資料來源',
     items: [
       { href: '/social', label: '社群監測', icon: Radio },
-      { href: '/interviews', label: '訪談資料', icon: Mic, editorOnly: true },
+      { href: '/interviews', label: '訪談資料', icon: Mic },
       { href: '/surveys', label: '問卷分析', icon: ClipboardList },
       { href: '/reports', label: '報告中心', icon: FileText },
     ],
@@ -52,21 +50,14 @@ const navSections: NavSection[] = [
   {
     title: '系統',
     items: [
-      { href: '/admin/audit-log', label: 'Audit Log', icon: History, editorOnly: true },
       { href: '/settings', label: '設定', icon: Settings },
     ],
   },
 ]
 
-export function Sidebar({ role }: { role?: string }) {
+export function Sidebar() {
   const pathname = usePathname()
-  const isEditor = role === 'editor'
   const sections = navSections
-    .map(s => ({
-      ...s,
-      items: s.items.filter(item => !item.editorOnly || isEditor),
-    }))
-    .filter(s => s.items.length > 0)
 
   return (
     <aside className="hidden md:flex fixed inset-y-0 left-0 z-30 w-[232px] flex-col border-r border-border bg-sidebar">

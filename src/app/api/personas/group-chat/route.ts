@@ -3,13 +3,10 @@ import { getPersona } from '@/lib/persona-store'
 import { chat, generateMultimodal, type MultimodalPart } from '@/lib/gemini'
 import {
   getQuotaStatus,
-  getUserQuotaStatus,
-  checkBoth,
-  incrementBoth,
-  checkUserQuota,
+  checkQuota,
+  incrementQuota,
   quotaDeniedMessage,
 } from '@/lib/quota'
-import { requireUser, type Role } from '@/lib/auth'
 import { semanticSearch } from '@/lib/rag/local-semantic-retriever'
 
 const QUOTE_RETRIEVE_TOP_K = 3
@@ -19,11 +16,9 @@ const QUOTE_RETRIEVE_MIN_QUERY_LEN = 3
 async function retrievePersonaQuotes(
   personaId: number,
   query: string,
-  email: string,
-  role: Role,
 ): Promise<string[]> {
   if (!query || query.length < QUOTE_RETRIEVE_MIN_QUERY_LEN) return []
-  if (!checkUserQuota(email, role, 'gemini_embedding').ok) return []
+  if (!checkQuota('gemini_embedding').ok) return []
   try {
     const hits = await semanticSearch(query, {
       topK: QUOTE_RETRIEVE_TOP_K,
@@ -170,9 +165,6 @@ export async function DELETE(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireUser(request)
-  if (auth instanceof NextResponse) return auth
-
   const contentType = request.headers.get('content-type') ?? ''
 
   let personaIds: number[] = []
@@ -243,13 +235,12 @@ export async function POST(request: NextRequest) {
     personas.push(p)
   }
 
-  const q = checkBoth(auth, 'gemini_chat')
+  const q = checkQuota('gemini_chat')
   if (!q.ok) {
     return NextResponse.json(
       {
-        error: quotaDeniedMessage(q.reason),
+        error: quotaDeniedMessage('gemini_chat', q.used, q.limit),
         quota: getQuotaStatus('gemini_chat'),
-        userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat'),
       },
       { status: 429 },
     )
@@ -270,12 +261,7 @@ export async function POST(request: NextRequest) {
 
   for (const self of personas) {
     const others = personas.filter(p => p.id !== self.id)
-    const relevantQuotes = await retrievePersonaQuotes(
-      self.id,
-      promptForPersona,
-      auth.email,
-      auth.role,
-    )
+    const relevantQuotes = await retrievePersonaQuotes(self.id, promptForPersona)
     const systemPrompt = buildGroupSystemPrompt(self, others, relevantQuotes)
     const userPrompt = formatTranscript(priorHistory, replies, promptForPersona, self.name, hasImages)
 
@@ -290,7 +276,7 @@ export async function POST(request: NextRequest) {
       } else {
         reply = await chat(systemPrompt, userPrompt)
       }
-      incrementBoth(auth, 'gemini_chat')
+      incrementQuota('gemini_chat')
       replies.push({
         type: 'persona',
         personaId: self.id,

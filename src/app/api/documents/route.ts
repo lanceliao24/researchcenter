@@ -1,21 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isLocalMode } from '@/lib/local-mode'
-import { requireEditor, requireUser } from '@/lib/auth'
-import { logAudit } from '@/lib/audit-log'
 
 export async function GET(request: NextRequest) {
-  const auth = await requireUser(request)
-  if (auth instanceof NextResponse) return auth
-
   const type = request.nextUrl.searchParams.get('type')
 
   if (isLocalMode()) {
     const { getLocalDocuments } = await import('@/lib/local-store')
-    let docs = getLocalDocuments(type || undefined)
-    // Hide raw transcripts from viewers — editor-only sensitive data.
-    if (auth.role !== 'editor') {
-      docs = docs.filter(d => d.type !== 'transcript')
-    }
+    const docs = getLocalDocuments(type || undefined)
     return NextResponse.json({ documents: docs })
   }
 
@@ -23,14 +14,11 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient()
   let query = supabase.from('documents').select('*').order('created_at', { ascending: false })
   if (type) query = query.eq('type', type)
-  if (auth.role !== 'editor') query = query.neq('type', 'transcript')
   const { data } = await query
   return NextResponse.json({ documents: data || [] })
 }
 
 export async function PATCH(request: NextRequest) {
-  const auth = await requireEditor(request)
-  if (auth instanceof NextResponse) return auth
   if (!isLocalMode()) {
     return NextResponse.json({ error: 'Not implemented for remote mode' }, { status: 501 })
   }
@@ -57,13 +45,10 @@ export async function PATCH(request: NextRequest) {
   if (!updated) {
     return NextResponse.json({ error: 'Document not found' }, { status: 404 })
   }
-  logAudit(auth, 'document.update', `doc:${id}`, { fields: Object.keys(patch) })
   return NextResponse.json({ ok: true, document: updated })
 }
 
 export async function DELETE(request: NextRequest) {
-  const auth = await requireEditor(request)
-  if (auth instanceof NextResponse) return auth
   const idParam = request.nextUrl.searchParams.get('id')
   const id = Number(idParam)
   if (!Number.isFinite(id)) {
@@ -85,9 +70,5 @@ export async function DELETE(request: NextRequest) {
     clearSurveySummary(id)
   }
 
-  logAudit(auth, 'document.delete', `doc:${removed.id}`, {
-    title: removed.title,
-    type: removed.type,
-  })
   return NextResponse.json({ ok: true, removed: { id: removed.id, title: removed.title } })
 }

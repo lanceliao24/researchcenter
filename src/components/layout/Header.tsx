@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -10,13 +10,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
-  LogOut, User, Menu, Sun, Moon, Monitor, Settings, Bell,
+  Menu, Sun, Moon, Monitor, Settings, Bell,
   LayoutDashboard, Radio, Mic, ClipboardList, FileText, MessageCircle, BookOpen,
 } from 'lucide-react'
 
@@ -36,27 +34,10 @@ const moreNavItems = [
 
 const allNavItems = [...primaryNavItems, ...moreNavItems]
 
-interface HeaderProps {
-  email?: string
-  role?: string
-}
-
-export function Header({ email, role }: HeaderProps) {
-  const router = useRouter()
+export function Header() {
   const pathname = usePathname()
   const { setTheme } = useTheme()
   const [mobileOpen, setMobileOpen] = useState(false)
-
-  async function handleSignOut() {
-    const { createClient } = await import('@/lib/supabase/client')
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
-
-  const initials = email
-    ? email.substring(0, 2).toUpperCase()
-    : 'RC'
 
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href)
@@ -112,28 +93,6 @@ export function Header({ email, role }: HeaderProps) {
             <button className="inline-flex items-center justify-center h-9 w-9 rounded-full hover:bg-accent transition-colors relative">
               <Bell className="h-[18px] w-[18px] text-muted-foreground" />
             </button>
-
-            {/* Avatar */}
-            <DropdownMenu>
-              <DropdownMenuTrigger className="h-9 w-9 rounded-full p-0 inline-flex items-center justify-center hover:ring-2 hover:ring-accent transition-all ml-1">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">{initials}</AvatarFallback>
-                </Avatar>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <div className="px-3 py-2">
-                  <p className="text-sm font-semibold">{email}</p>
-                  {role && <p className="text-xs text-muted-foreground mt-0.5">{role}</p>}
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push('/settings')} className="flex items-center gap-2">
-                  <User className="h-4 w-4" /> 個人設定
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleSignOut} className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                  <LogOut className="h-4 w-4" /> 登出
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </div>
       </header>

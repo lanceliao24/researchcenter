@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { isLocalMode } from '@/lib/local-mode'
 import { validateUploadFile } from '@/lib/upload-validation'
-import { requireEditor } from '@/lib/auth'
-import { logAudit } from '@/lib/audit-log'
 
 const FILE_ID_PATTERNS = [
   /\/file\/d\/([a-zA-Z0-9_-]+)/,
@@ -75,8 +73,6 @@ async function fetchDriveFile(
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireEditor(request)
-  if (auth instanceof NextResponse) return auth
   if (!isLocalMode()) {
     return NextResponse.json({ error: 'Not implemented for remote mode' }, { status: 501 })
   }
@@ -138,11 +134,5 @@ export async function POST(request: NextRequest) {
   }
 
   const successCount = results.filter(r => r.ok).length
-  if (successCount > 0) {
-    logAudit(auth, 'report.import_drive', null, {
-      count: successCount,
-      total: urls.length,
-    })
-  }
   return NextResponse.json({ imported: successCount, total: urls.length, results })
 }

@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import path from 'path'
 import fs from 'fs'
-import { parseTranscript, groupBySpeaker, pickInterviewees, buildSpeakerDigest, type SpeakerProfile } from '@/lib/transcript-parser'
+import { parseTranscript, groupBySpeaker, pickInterviewees, buildSpeakerDigest } from '@/lib/transcript-parser'
 import { upsertPersonaFromSource, inferCategoryFromFile } from '@/lib/persona-store'
 import { chatPro } from '@/lib/gemini'
-import { getQuotaStatus, getUserQuotaStatus, checkBoth, incrementBoth, quotaDeniedMessage } from '@/lib/quota'
-import { requireEditor } from '@/lib/auth'
-import { logAudit } from '@/lib/audit-log'
+import { getQuotaStatus, checkQuota, incrementQuota, quotaDeniedMessage } from '@/lib/quota'
 import type { Persona, PersonaCategory } from '@/types'
 
 const VALID_CATEGORIES: PersonaCategory[] = ['rental', 'taxi', 'scooter', 'other']
@@ -48,8 +46,6 @@ async function generatePersonaJson(digest: string, seed: string): Promise<Record
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireEditor(request)
-  if (auth instanceof NextResponse) return auth
   const body = await request.json().catch(() => ({}))
   const inputPath: string = body.filePath || '/Users/lanceliao/Downloads/rental.yml'
   const minTurns: number = body.minTurns ?? 30
@@ -70,13 +66,12 @@ export async function POST(request: NextRequest) {
   const interviewees = pickInterviewees(profiles, { minTurns, minWords, maxQuestionRatio: 0.5 })
   const selected = interviewees.slice(0, limit)
 
-  const q = checkBoth(auth, 'gemini_chat_pro')
+  const q = checkQuota('gemini_chat_pro')
   if (!q.ok) {
     return NextResponse.json(
       {
-        error: quotaDeniedMessage(q.reason),
+        error: quotaDeniedMessage('gemini_chat_pro', q.used, q.limit),
         quota: getQuotaStatus('gemini_chat_pro'),
-        userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat_pro'),
         eligible: interviewees.length,
       },
       { status: 429 },
@@ -109,7 +104,7 @@ export async function POST(request: NextRequest) {
         try {
           const digest = buildSpeakerDigest(profile, 8000)
           const json = await generatePersonaJson(digest, profile.speaker)
-          incrementBoth(auth, 'gemini_chat_pro')
+          incrementQuota('gemini_chat_pro')
           const persona = upsertPersonaFromSource({
             name: String(json.name ?? profile.speaker),
             category,
@@ -162,13 +157,6 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      if (created.length > 0) {
-        logAudit(auth, 'persona.generate', null, {
-          count: created.length,
-          filePath: inputPath,
-        })
-      }
-
       emit({
         type: 'complete',
         created: created.length,
@@ -176,7 +164,6 @@ export async function POST(request: NextRequest) {
         eligible: interviewees.length,
         totalSpeakers: profiles.length,
         quota: getQuotaStatus('gemini_chat_pro'),
-        userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat_pro'),
         personas: created,
       })
 

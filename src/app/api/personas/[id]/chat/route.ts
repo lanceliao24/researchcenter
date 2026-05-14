@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getPersona } from '@/lib/persona-store'
 import { getMessages, appendMessage, clearMessages } from '@/lib/persona-chat-store'
 import { chatWithHistory, type ChatImagePart } from '@/lib/gemini'
-import { getQuotaStatus, getUserQuotaStatus, checkBoth, incrementBoth, quotaDeniedMessage } from '@/lib/quota'
-import { requireUser } from '@/lib/auth'
+import { getQuotaStatus, checkQuota, incrementQuota, quotaDeniedMessage } from '@/lib/quota'
 import {
   saveChatImage,
   isAllowedImageMime,
@@ -12,7 +11,6 @@ import {
   ImageValidationError,
 } from '@/lib/chat-image-store'
 import { semanticSearch } from '@/lib/rag/local-semantic-retriever'
-import { checkUserQuota } from '@/lib/quota'
 
 const QUOTE_RETRIEVE_TOP_K = 3
 const QUOTE_RETRIEVE_MIN_SCORE = 0.3
@@ -21,12 +19,9 @@ const QUOTE_RETRIEVE_MIN_QUERY_LEN = 3
 async function retrievePersonaQuotes(
   personaId: number,
   query: string,
-  email: string,
-  role: 'editor' | 'viewer',
 ): Promise<string[]> {
   if (!query || query.length < QUOTE_RETRIEVE_MIN_QUERY_LEN) return []
-  const q = checkUserQuota(email, role, 'gemini_embedding')
-  if (!q.ok) return []
+  if (!checkQuota('gemini_embedding').ok) return []
   try {
     const hits = await semanticSearch(query, {
       topK: QUOTE_RETRIEVE_TOP_K,
@@ -118,9 +113,6 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireUser(request)
-  if (auth instanceof NextResponse) return auth
-
   const { id } = await context.params
   const personaId = Number(id)
   const persona = getPersona(personaId)
@@ -175,13 +167,12 @@ export async function POST(
     return NextResponse.json({ error: '訊息或圖片至少擇一' }, { status: 400 })
   }
 
-  const q = checkBoth(auth, 'gemini_chat')
+  const q = checkQuota('gemini_chat')
   if (!q.ok) {
     return NextResponse.json(
       {
-        error: quotaDeniedMessage(q.reason),
+        error: quotaDeniedMessage('gemini_chat', q.used, q.limit),
         quota: getQuotaStatus('gemini_chat'),
-        userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat'),
       },
       { status: 429 },
     )
@@ -191,23 +182,17 @@ export async function POST(
   const userMsg = appendMessage(personaId, 'user', message, imageUrls)
 
   try {
-    const relevantQuotes = await retrievePersonaQuotes(
-      personaId,
-      message,
-      auth.email,
-      auth.role,
-    )
+    const relevantQuotes = await retrievePersonaQuotes(personaId, message)
     const systemPrompt = buildSystemPrompt(persona, relevantQuotes)
     const history = prior.map(m => ({ role: m.role, content: m.content }))
     const promptText = message || '（使用者沒有附文字，只附了畫面。請直接針對圖片給第一印象與反應）'
     const reply = await chatWithHistory(systemPrompt, history, promptText, imageParts)
-    incrementBoth(auth, 'gemini_chat')
+    incrementQuota('gemini_chat')
     const assistantMsg = appendMessage(personaId, 'assistant', reply)
     return NextResponse.json({
       user: userMsg,
       assistant: assistantMsg,
       quota: getQuotaStatus('gemini_chat'),
-      userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat'),
     })
   } catch (err) {
     return NextResponse.json(

@@ -2,14 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isLocalMode } from '@/lib/local-mode'
 import { chatPro, wrapUntrusted } from '@/lib/gemini'
 import {
-  checkBoth,
-  incrementBoth,
+  checkQuota,
+  incrementQuota,
   getQuotaStatus,
-  getUserQuotaStatus,
   quotaDeniedMessage,
 } from '@/lib/quota'
-import { requireEditor } from '@/lib/auth'
-import { logAudit } from '@/lib/audit-log'
 import { getLocalDocuments } from '@/lib/local-store'
 import { getSurveySummary } from '@/lib/survey-summary-store'
 import { listMetricsByMonth, listMonths } from '@/lib/monthly-survey-store'
@@ -372,9 +369,6 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireEditor(req)
-  if (auth instanceof NextResponse) return auth
-
   if (!isLocalMode()) {
     return NextResponse.json({ error: 'production not implemented' }, { status: 501 })
   }
@@ -405,23 +399,21 @@ export async function POST(req: NextRequest) {
 
   // Quota: each service consumes 1 Pro call. Pre-check total before starting.
   const proStatus = getQuotaStatus('gemini_chat_pro')
-  const userPro = getUserQuotaStatus(auth.email, auth.role, 'gemini_chat_pro')
   const need = serviceList.length
-  if (proStatus.remaining < need || userPro.remaining < need) {
+  if (proStatus.remaining < need) {
     return NextResponse.json(
       {
-        error: `Pro 配額不足：需要 ${need}（每服務 1 份），全站剩 ${proStatus.remaining}、個人剩 ${userPro.remaining}`,
+        error: `Pro 配額不足：需要 ${need}（每服務 1 份），剩 ${proStatus.remaining}`,
         quota: proStatus,
-        userQuota: userPro,
       },
       { status: 429 },
     )
   }
 
-  const q = checkBoth(auth, 'gemini_chat_pro')
+  const q = checkQuota('gemini_chat_pro')
   if (!q.ok) {
     return NextResponse.json(
-      { error: quotaDeniedMessage(q.reason), quota: proStatus, userQuota: userPro },
+      { error: quotaDeniedMessage('gemini_chat_pro', q.used, q.limit), quota: proStatus },
       { status: 429 },
     )
   }
@@ -438,7 +430,7 @@ export async function POST(req: NextRequest) {
     if (issuesForService.length === 0) continue
     try {
       const result = await canonicalizeService(service, issuesForService)
-      incrementBoth(auth, 'gemini_chat_pro')
+      incrementQuota('gemini_chat_pro')
       byService.push(result)
     } catch (err) {
       errors.push({ service, error: (err as Error).message })
@@ -460,13 +452,6 @@ export async function POST(req: NextRequest) {
     byService,
   }
   writeIssueTrends(snapshot)
-
-  logAudit(auth, 'survey.issue_trends', null, {
-    services: serviceList.length,
-    issues: byService.reduce((s, st) => s + st.issues.length, 0),
-    rawThemes: rawIssues.length,
-    errors: errors.length,
-  })
 
   return NextResponse.json({ snapshot, errors })
 }

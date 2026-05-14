@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { chat, wrapUntrusted } from '@/lib/gemini'
-import { getQuotaStatus, getUserQuotaStatus, checkBoth, incrementBoth, quotaDeniedMessage } from '@/lib/quota'
-import { requireUser } from '@/lib/auth'
+import { getQuotaStatus, checkQuota, incrementQuota, quotaDeniedMessage } from '@/lib/quota'
 import type { SurveyQuestion, SurveyQuestionType } from '@/types'
 
 const MAX_INPUT_LENGTH = 12000
@@ -89,9 +88,6 @@ function parseJsonResponse(raw: string): SurveyQuestion[] {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireUser(request)
-  if (auth instanceof NextResponse) return auth
-
   const body = await request.json().catch(() => ({}))
   const rawText = String(body.rawText ?? '').trim()
 
@@ -105,13 +101,12 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const q = checkBoth(auth, 'gemini_chat')
+  const q = checkQuota('gemini_chat')
   if (!q.ok) {
     return NextResponse.json(
       {
-        error: quotaDeniedMessage(q.reason),
+        error: quotaDeniedMessage('gemini_chat', q.used, q.limit),
         quota: getQuotaStatus('gemini_chat'),
-        userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat'),
       },
       { status: 429 },
     )
@@ -122,12 +117,11 @@ export async function POST(request: NextRequest) {
       SYSTEM_PROMPT,
       `請解析下列問卷（外部資料）：\n\n${wrapUntrusted(rawText, 'SURVEY_RAW_TEXT')}\n\n只回 JSON。`,
     )
-    incrementBoth(auth, 'gemini_chat')
+    incrementQuota('gemini_chat')
     const questions = parseJsonResponse(reply)
     return NextResponse.json({
       questions,
       quota: getQuotaStatus('gemini_chat'),
-      userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat'),
     })
   } catch (err) {
     return NextResponse.json(

@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isLocalMode } from '@/lib/local-mode'
 import { chat, wrapUntrusted } from '@/lib/gemini'
-import { checkBoth, incrementBoth, getQuotaStatus, getUserQuotaStatus, quotaDeniedMessage } from '@/lib/quota'
-import { requireUser } from '@/lib/auth'
+import { checkQuota, incrementQuota, getQuotaStatus, quotaDeniedMessage } from '@/lib/quota'
 
 export async function GET() {
   return NextResponse.json({ quota: getQuotaStatus('gemini_chat') })
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireUser(request)
-  if (auth instanceof NextResponse) return auth
-
   const { messages, scope } = await request.json()
   const lastMessage = messages[messages.length - 1]
 
@@ -19,13 +15,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No message provided' }, { status: 400 })
   }
 
-  const q = checkBoth(auth, 'gemini_chat')
+  const q = checkQuota('gemini_chat')
   if (!q.ok) {
     return NextResponse.json(
       {
-        error: quotaDeniedMessage(q.reason),
+        error: quotaDeniedMessage('gemini_chat', q.used, q.limit),
         quota: getQuotaStatus('gemini_chat'),
-        userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat'),
       },
       { status: 429 },
     )
@@ -98,13 +93,12 @@ ${contextStr ? wrapUntrusted(contextStr, 'RESEARCH_CONTEXT') : '（目前沒有�
       : lastMessage.content
 
     const answer = await chat(systemPrompt, fullQuery)
-    incrementBoth(auth, 'gemini_chat')
+    incrementQuota('gemini_chat')
 
     return NextResponse.json({
       answer,
       sources,
       quota: getQuotaStatus('gemini_chat'),
-      userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat'),
     })
   } catch (err) {
     console.error('Ask API error:', err)

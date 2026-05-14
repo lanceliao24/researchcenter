@@ -7,8 +7,6 @@ import {
 } from '@/lib/rag/raw-indexer'
 import { deleteAll, getIndexStats } from '@/lib/rag/local-semantic-retriever'
 import { getQuotaStatus, QuotaExceededError } from '@/lib/quota'
-import { requireEditor } from '@/lib/auth'
-import { logAudit } from '@/lib/audit-log'
 
 export async function GET() {
   const stats = getIndexStats()
@@ -19,8 +17,6 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireEditor(request)
-  if (auth instanceof NextResponse) return auth
   const body = await request.json().catch(() => ({}))
   const { document_id, all, themes_only, reset, max_records } = body as {
     document_id?: number
@@ -32,7 +28,6 @@ export async function POST(request: NextRequest) {
 
   if (reset) {
     deleteAll()
-    logAudit(auth, 'rag.index_reset', null)
     return NextResponse.json({ reset: true, stats: getIndexStats() })
   }
 
@@ -41,7 +36,6 @@ export async function POST(request: NextRequest) {
   try {
     if (all) {
       const result = await indexAll(indexOpts)
-      logAudit(auth, 'rag.index_all', null, { totalIndexed: result.totalIndexed })
       return NextResponse.json({
         ...result,
         stats: getIndexStats(),
@@ -70,7 +64,6 @@ export async function POST(request: NextRequest) {
     }
 
     const totalIndexed = results.reduce((s, r) => s + r.indexed, 0)
-    logAudit(auth, 'rag.index', `doc:${document_id}`, { totalIndexed })
     return NextResponse.json({
       results,
       totalIndexed,

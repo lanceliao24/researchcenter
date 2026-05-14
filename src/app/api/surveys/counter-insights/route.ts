@@ -2,14 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isLocalMode } from '@/lib/local-mode'
 import { chatPro, wrapUntrusted } from '@/lib/gemini'
 import {
-  checkBoth,
-  incrementBoth,
+  checkQuota,
+  incrementQuota,
   getQuotaStatus,
-  getUserQuotaStatus,
   quotaDeniedMessage,
 } from '@/lib/quota'
-import { requireEditor } from '@/lib/auth'
-import { logAudit } from '@/lib/audit-log'
 import { listMonths, listMetricsByMonth, loadMonthRawRows } from '@/lib/monthly-survey-store'
 import {
   readCounterInsights,
@@ -188,9 +185,6 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireEditor(req)
-  if (auth instanceof NextResponse) return auth
-
   if (!isLocalMode()) {
     return NextResponse.json({ error: 'production not implemented' }, { status: 501 })
   }
@@ -222,19 +216,18 @@ export async function POST(req: NextRequest) {
 
   // Quota gate (N Pro calls for N cohorts)
   const proStatus = getQuotaStatus('gemini_chat_pro')
-  const userPro = getUserQuotaStatus(auth.email, auth.role, 'gemini_chat_pro')
-  if (proStatus.remaining < cohorts.length || userPro.remaining < cohorts.length) {
+  if (proStatus.remaining < cohorts.length) {
     return NextResponse.json(
       {
-        error: `Pro 配額不足：需要 ${cohorts.length}，全站剩 ${proStatus.remaining}、個人剩 ${userPro.remaining}`,
+        error: `Pro 配額不足：需要 ${cohorts.length}，剩 ${proStatus.remaining}`,
       },
       { status: 429 },
     )
   }
 
-  const q = checkBoth(auth, 'gemini_chat_pro')
+  const q = checkQuota('gemini_chat_pro')
   if (!q.ok) {
-    return NextResponse.json({ error: quotaDeniedMessage(q.reason) }, { status: 429 })
+    return NextResponse.json({ error: quotaDeniedMessage('gemini_chat_pro', q.used, q.limit) }, { status: 429 })
   }
 
   const existing = readCounterInsights()
@@ -247,7 +240,7 @@ export async function POST(req: NextRequest) {
   for (const cohort of cohorts) {
     try {
       const result = await analyzeCohort(cohort)
-      incrementBoth(auth, 'gemini_chat_pro')
+      incrementQuota('gemini_chat_pro')
       byService.push(result)
     } catch (err) {
       errors.push({ service: cohort.service, error: (err as Error).message })
@@ -270,14 +263,6 @@ export async function POST(req: NextRequest) {
   const skippedSmall = listMetricsByMonth(latestMonth)
     .filter(m => !allCohorts.find(c => c.service === m.service))
     .map(m => m.service)
-
-  logAudit(auth, 'survey.counter_insights', null, {
-    services: cohorts.length,
-    contradictions: byService.reduce((s, x) => s + x.contradictions.length, 0),
-    month: latestMonth,
-    skipped: skippedSmall.length,
-    errors: errors.length,
-  })
 
   return NextResponse.json({ snapshot, errors, skippedServices: skippedSmall })
 }

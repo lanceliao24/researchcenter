@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 import { resolveRelativeFilePath } from '@/lib/paths'
-import { requireUser } from '@/lib/auth'
 
 const MIME_BY_EXT: Record<string, string> = {
   '.pdf': 'application/pdf',
@@ -19,25 +18,16 @@ const MIME_BY_EXT: Record<string, string> = {
   '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 }
 
-const EDITOR_ONLY_PREFIXES = ['transcript/', 'transcript-text/']
-
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ slug: string[] }> },
 ) {
-  const auth = await requireUser(req)
-  if (auth instanceof NextResponse) return auth
   const { slug } = await params
   if (!slug || slug.length === 0) {
     return NextResponse.json({ error: 'Missing path' }, { status: 400 })
   }
 
   const joined = slug.join('/')
-  // Transcripts are raw interview content — sensitive, editor-only.
-  if (EDITOR_ONLY_PREFIXES.some(p => joined.startsWith(p)) && auth.role !== 'editor') {
-    return NextResponse.json({ error: 'Forbidden: editor only' }, { status: 403 })
-  }
-
   const absolute = resolveRelativeFilePath(joined)
   if (!absolute) {
     return NextResponse.json({ error: 'Invalid path' }, { status: 400 })

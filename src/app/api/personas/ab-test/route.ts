@@ -3,13 +3,10 @@ import { getPersona } from '@/lib/persona-store'
 import { generateMultimodal, type MultimodalPart } from '@/lib/gemini'
 import {
   getQuotaStatus,
-  getUserQuotaStatus,
-  checkBoth,
-  incrementBoth,
-  checkUserQuota,
+  checkQuota,
+  incrementQuota,
   quotaDeniedMessage,
 } from '@/lib/quota'
-import { requireUser, type Role } from '@/lib/auth'
 import { semanticSearch } from '@/lib/rag/local-semantic-retriever'
 import {
   saveChatImage,
@@ -35,11 +32,9 @@ const QUOTE_RETRIEVE_MIN_QUERY_LEN = 3
 async function retrievePersonaQuotes(
   personaId: number,
   query: string,
-  email: string,
-  role: Role,
 ): Promise<string[]> {
   if (!query || query.length < QUOTE_RETRIEVE_MIN_QUERY_LEN) return []
-  if (!checkUserQuota(email, role, 'gemini_embedding').ok) return []
+  if (!checkQuota('gemini_embedding').ok) return []
   try {
     const hits = await semanticSearch(query, {
       topK: QUOTE_RETRIEVE_TOP_K,
@@ -165,9 +160,6 @@ function decideWinner(scoreA: number, scoreB: number): ABTestWinner {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireUser(request)
-  if (auth instanceof NextResponse) return auth
-
   const contentType = request.headers.get('content-type') ?? ''
   if (!contentType.includes('multipart/form-data')) {
     return NextResponse.json({ error: '需要 multipart/form-data' }, { status: 400 })
@@ -212,13 +204,12 @@ export async function POST(request: NextRequest) {
     personas.push(p)
   }
 
-  const q = checkBoth(auth, 'gemini_chat')
+  const q = checkQuota('gemini_chat')
   if (!q.ok) {
     return NextResponse.json(
       {
-        error: quotaDeniedMessage(q.reason),
+        error: quotaDeniedMessage('gemini_chat', q.used, q.limit),
         quota: getQuotaStatus('gemini_chat'),
-        userQuota: getUserQuotaStatus(auth.email, auth.role, 'gemini_chat'),
       },
       { status: 429 },
     )
@@ -245,15 +236,15 @@ export async function POST(request: NextRequest) {
   const responses: ABTestResponse[] = await Promise.all(
     personas.map(async (persona) => {
       const [quotesA, quotesB] = await Promise.all([
-        retrievePersonaQuotes(persona.id, optionAQuery, auth.email, auth.role),
-        retrievePersonaQuotes(persona.id, optionBQuery, auth.email, auth.role),
+        retrievePersonaQuotes(persona.id, optionAQuery),
+        retrievePersonaQuotes(persona.id, optionBQuery),
       ])
       const [resA, resB] = await Promise.allSettled([
         assessOption(persona, optionA, quotesA),
         assessOption(persona, optionB, quotesB),
       ])
-      if (resA.status === 'fulfilled') incrementBoth(auth, 'gemini_chat')
-      if (resB.status === 'fulfilled') incrementBoth(auth, 'gemini_chat')
+      if (resA.status === 'fulfilled') incrementQuota('gemini_chat')
+      if (resB.status === 'fulfilled') incrementQuota('gemini_chat')
       if (resA.status !== 'fulfilled' || resB.status !== 'fulfilled') {
         const failed = resA.status === 'rejected' ? resA.reason : (resB as PromiseRejectedResult).reason
         return {
