@@ -48,28 +48,10 @@
 - 訊息紀錄：`PersonaChatMessage.images?: string[]`（存 public URL）
 - Group chat 也支援附圖（2026-04-28）：`POST /api/personas/group-chat` 改吃 multipart（`personaIds` 用 comma-separated 字串、`message`、`images[]`），有圖時每位 persona 用 `generateMultimodal` 看到同一張圖；`GroupMessage.images?: string[]` 只在 user type 上設值
 
-### Persona 模擬填問卷（B2，4 題型 + 雙來源）
-- 目的：給定問卷（CSV 或貼文字）+ persona 名單 → 每位 persona 對所選題目逐題作答（單選 / 複選 / 量表 / 開放）
-- 兩種輸入來源：
-  - **CSV**：`GET /api/personas/survey-fill?surveyId=N` 回傳 columns + samples，使用者勾選欄位（一律當量表題）
-  - **貼上問卷**：`POST /api/personas/parse-survey` `{ rawText }` → AI 解析成 `SurveyQuestion[]`（4 題型，矩陣自動拆成多個 likert）；使用者可手動修正題型或刪題
-- 執行：`POST /api/personas/survey-fill` 接 `{ source: 'csv'|'pasted', personaIds, ... }`
-- Per-type pipeline：
-  - **single / multi**：LLM 回 JSON `{ choice/choices, reason }`，自動 fuzzy match 回原 options
-  - **likert**：LLM 自然語言反應 → `scoreUsageIntent` → 連續分 + Likert（重用 `USAGE_INTENT_ANCHORS`）
-  - **open**：純自然語言 reaction，無分數
-- 彙整：likert 給 mean score；single/multi 給 choice distribution；open 只列回答
-- Store：`src/lib/persona-survey-fill-store.ts`，runs 持久化於 `_persona_survey_fills.json`，含 `source: 'csv'|'pasted'`
-- 配額：每 persona × 題 1 份 `gemini_chat`；解析另耗 1 份；上限 10 personas × 15 題 = 150
-- UI：personas page 第三個 selectMode `'survey'`，`SurveyFillDialog` 有兩個 tab（從 CSV / 貼上問卷），結果按題型分支渲染
-
-### A/B test（semantic Likert elicitation）
-- 動機：直接讓 LLM 二選一有系統性偏差（參考 arxiv:2510.08338）；改讓 persona 用自然語言回應，再 embedding 比對 anchor
-- Endpoint：`POST /api/personas/ab-test`（multipart：`personaIds` / `titleA`+`descriptionA`+`imagesA` / 對應 B）
-- Pipeline（per persona）：對 A 呼叫 `generateMultimodal` 取自然反應 → `generateEmbedding` → 跟 5 段 anchor 比 cosine → softmax-weighted 1–5 連續分數 + argmax Likert；對 B 同理
-- Anchors：`src/lib/semantic-likert.ts` 的 `USAGE_INTENT_ANCHORS`（1=不會用 → 5=一定會用），模組級快取 anchor embeddings
-- 贏家判定：`|scoreA - scoreB| < 0.3` 視為平手（`TIE_THRESHOLD` 在 route.ts）
-- 配額：每 persona 耗 2 份 `gemini_chat`（embedding 不計）；單次上限 10 位
+### Persona 功能索引（細節看各檔頂部 comment）
+- **B2 模擬填問卷**：`src/app/api/personas/survey-fill/route.ts` + `parse-survey/route.ts` — 4 題型 × CSV/貼上雙來源；store: `persona-survey-fill-store.ts`
+- **A/B test**：`src/app/api/personas/ab-test/route.ts` — semantic Likert 雙評分；anchors: `src/lib/semantic-likert.ts`
+- **Persona simulator RAG**：`src/app/api/personas/reindex/route.ts` — 訪談原文 vector 索引，1:1 / group / ab-test 用 top-3 retrieve 取代靜態 digest
 
 ### 檔案解析
 - PDF → `pdf-parse`，抽文字另存 `.txt` 到 `{type}-text/`
@@ -98,55 +80,11 @@
 - 從外部開專案：`rc`（shell alias，`~/.zshrc`）
 - 在 cc session 內恢復狀態：`/research-center`（user-level slash command）
 
-### Auth（Google Workspace SSO + Editor / Viewer 角色）
-- 全站由 `proxy.ts`（Next 16 中介層，舊稱 middleware）擋未登入請求
-  - 未登入打 `/api/*` → 401 JSON
-  - 未登入打頁面 → 302 redirect 到 `/login?next=...`
-  - 公開白名單：`/login`、`/api/auth/google/{start,callback}`、`/api/auth/logout`、`/api/social/cron`
-- `src/lib/auth.ts` 提供
-  - `requireUser(req)` / `requireEditor(req)` — handler 一行 guard，回傳 `Session` 或 `NextResponse`（401/403）
-  - `requireEditorOrCron(req)` — 接受 editor session 或 `Authorization: Bearer ${CRON_SECRET}`
-  - `getSessionFromRequest(req)` / `getSessionFromCookies()` — server component 用
-  - HMAC-SHA256 signed JWT cookie（`rc_session`，7 天 TTL，HttpOnly + SameSite=Lax + Secure on https）
-- 角色判定
-  - `ALLOWED_EMAIL_DOMAIN` + `ALLOWED_EMAILS` 決定誰能進來
-  - `EDITOR_EMAILS` 名單決定 editor，其他登入者皆為 viewer
-- 已包 `requireEditor` 的 routes（mutating only）：
-  - `/api/upload`、`/api/documents`（PATCH/DELETE）、`/api/personas`（DELETE）、`/api/personas/generate`
-  - `/api/reports/import-drive`、`/api/rag/index`、`/api/social/keywords`、`/api/social/fetch`（or cron）
-  - `/api/surveys/monthly-import`、`/api/wiki/ingest`、`/api/embed`
-- `/api/files/[...slug]` 包 `requireUser`（檔案 streaming 限登入者）
-- 其他 GET 與 AI 對話類 endpoint 預設受 proxy 保護（任何登入者皆可使用）
-- Dev 跳過：`NODE_ENV=development` + `AUTH_DEV_BYPASS=1` → 自動給 dev editor session
-- 部署前必設環境變數：`AUTH_SECRET`、`GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`、`ALLOWED_EMAIL_DOMAIN`（或 `ALLOWED_EMAILS`）、`EDITOR_EMAILS`、`AUTH_BASE_URL`
-
-### Audit log（誰做了什麼）
-- 每次 editor mutation 寫一行 NDJSON 到 `data/store/audit-log.ndjson`
-- helper：`logAudit(session, action, resource?, details?)`（`src/lib/audit-log.ts`）
-- 已 wired 的 actions：`upload.create`、`document.update/delete`、`persona.delete/generate`、`keyword.add/delete/toggle`、`report.import_drive`、`rag.index/index_all/index_reset`、`social.fetch`、`survey.monthly_import`、`wiki.ingest`、`embed.create`
-- 查詢：`GET /api/admin/audit-log?limit=200&email=...&action=...&since=ISO`（需 editor）
-
-### Per-user quota（個人 AI 額度）
-- 全域 quota（`_quota.json`）+ 個人 quota（`user-quota.json`）並存，**兩者皆需通過**
-- Quota keys：`gemini_chat` / `gemini_chat_pro` / `gemini_embedding` / `firecrawl_search`
-- 預設每日上限（可由 env override）：
-  - editor：chat=60、chat_pro=10、embed=1000、firecrawl=30
-  - viewer：chat=30、**chat_pro=0**（Pro 模型 editor-only）、embed=500、firecrawl=10
-- helper：`checkBoth(session, key)` / `incrementBoth(session, key)`（`src/lib/quota.ts`）
-- AI 回應會帶 `quota`（全站）+ `userQuota`（個人）兩個欄位
-- 已接 `gemini_chat`：`/api/ask`、`/api/personas/{[id]/chat,group-chat,parse-survey,ab-test}`
-- 已接 `gemini_chat_pro`：`/api/insights/{overview,monthly-report,topic-alignment,competitor-alignment}`、`/api/personas/generate`
-
 ### Gemini 模型分層（src/lib/gemini.ts）
 - `chat()` Flash 主：一般 AI 對話 / 解析 / 萃取
 - `chatLite()` Lite 主：上傳 enrich、單問卷主題摘要、報告推薦
-- `chatPro()` Pro 主（fallback Flash）：5 個 narrative/analysis endpoint，editor-only via Pro quota
+- `chatPro()` Pro 主（fallback Flash）：5 個 narrative/analysis endpoint
 - `chatWithHistory()` Flash + 對話歷史：1:1 persona chat
 - `generateMultimodal()` Flash + 圖：group-chat 帶圖、ab-test
 - `generateEmbedding()` `gemini-embedding-001` fallback chain
 
-### Persona simulator RAG（1:1 / group-chat / ab-test）
-- 訪談原文按 persona 索引為 `source_type='persona_quote'`、`source_id=personaId` 的 vector chunks
-- chat 時依問題（或方案標題+描述）retrieve top-3 段（cosine ≥ 0.3）注入 system prompt
-- 取代靜態 transcript_digest（已從 system prompt 移除）
-- Backfill：`/api/personas/reindex` POST（editor）或 personas 頁「重新索引訪談原文」按鈕

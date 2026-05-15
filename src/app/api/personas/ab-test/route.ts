@@ -1,3 +1,7 @@
+// A/B test — semantic Likert（非 forced-choice，見 semantic-likert.ts header）
+// Pipeline（per persona）：generateMultimodal 取對 A / B 的自然反應 → scoreUsageIntent → 兩個連續分 + Likert
+// 贏家：|scoreA - scoreB| < TIE_THRESHOLD (0.3) → 'tie'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { getPersona } from '@/lib/persona-store'
 import { generateMultimodal, type MultimodalPart } from '@/lib/gemini'

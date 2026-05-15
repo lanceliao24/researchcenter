@@ -1,3 +1,9 @@
+// Semantic Likert elicitation — 取代 forced-choice 二選一
+//
+// 動機：直接讓 LLM 在 A/B 中二選一有系統性偏差（參考 arxiv:2510.08338）。
+// 改讓 persona 用自然語言反應 → embedding 比對 5 段 anchor → softmax-weighted 1–5 連續分 + argmax Likert。
+// Anchor embeddings 模組級快取（首次呼叫時 build），所以 B2 量表題與 A/B test 共用同一組 anchor。
+
 import { generateEmbedding, generateEmbeddings } from '@/lib/gemini'
 
 export const USAGE_INTENT_ANCHORS: [string, string, string, string, string] = [

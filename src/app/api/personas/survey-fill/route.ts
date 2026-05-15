@@ -1,3 +1,12 @@
+// Persona 模擬填問卷（B2）— 4 題型 × 雙來源（CSV / 貼上）
+//
+// Per-type pipeline：
+//   - single / multi：LLM 回 JSON，自動 fuzzy match 回原 options
+//   - likert：scoreUsageIntent（重用 USAGE_INTENT_ANCHORS，見 semantic-likert.ts）
+//   - open：純自然語言反應，無分數
+// 配額：每 persona × 題 1 份 `gemini_chat`；上限 MAX_PERSONAS × MAX_QUESTIONS = 150
+// 解析貼上問卷：另一個 endpoint `/api/personas/parse-survey`（矩陣自動拆 likert）
+
 import { NextRequest, NextResponse } from 'next/server'
 import Papa from 'papaparse'
 import { isLocalMode } from '@/lib/local-mode'
